@@ -126,3 +126,80 @@ Trocado pelo padrão que a SPEC-003 estabeleceu: cada classe de falha tem uma
 substring acionável e assertável. Falhas fora das quatro classes caem num
 default que ainda nomeia a env var — o que a spec proíbe é a mensagem genérica
 sem ponteiro, não a existência de um catch-all.
+
+## Decisões e desvios da implementação
+
+**D1 — Classificação prefere SQLSTATE ao texto do driver.**
+Os cenários pedem substrings em português na mensagem *que o usuário lê*; a
+decisão de qual classe aplicar vem do SQLSTATE (28P01, 3D000, 08001/04/06),
+que é contrato do Postgres. O texto do driver é fallback, porque muda com
+locale, versão e plataforma — e um teste que dependa dele quebra sozinho num
+runner com locale diferente.
+
+Consequência deliberada: o texto do driver **nunca é ecoado** ao usuário. Um
+driver é livre para incluir a connection string inteira no que levanta, e o
+critério 6 não sobreviveria a repassá-la. O que sai da classificação é o nome
+da classe da exceção original (`OperationalError`), que não pode carregar
+segredo, mais a URL já redigida.
+
+**D2 — A redação da senha reconstrói a URL, não faz replace.**
+`redact_password` remonta a URL a partir das partes parseadas, então nem a
+forma plana nem a percent-encoded do segredo sobrevive. Um `str.replace` da
+senha deixaria passar `p%40ss` quando a senha é `p@ss`. Testado com senhas que
+codificam diferente. A função também não levanta para entrada inparseável:
+uma rede de segurança que estoura é pior do que nenhuma.
+
+**D3 — `sqlite://` explícito é aceito, embora nenhum critério exija.**
+Rejeitar uma URL SQLite válida seria surpreendente, e é o mesmo dialeto que a
+ferramenta já fala. Custa três linhas e tem teste. `is_default` fica `False`:
+o usuário configurou algo, mesmo que tenha configurado SQLite.
+
+**D4 — Env var vazia é ausência de configuração, não configuração inválida.**
+`SPECHARNESS_DATABASE_URL=""` cai no caminho default. Um shell que exporta a
+variável vazia é comum demais para tratar como erro.
+
+**D5 — O harness de teste tem a própria variável.**
+`SPECHARNESS_TEST_POSTGRES_URL` diz onde vive o Postgres *dos testes*. Ela
+existe porque os casos SQLite precisam continuar rodando na mesma sessão — se
+o Postgres viesse por `SPECHARNESS_DATABASE_URL`, o caminho default nunca
+seria exercitado. O **produto** continua conhecendo uma única variável, que é
+o que a métrica 2 promete.
+
+**D6 — Dois defeitos achados pelos próprios testes, não por revisão.**
+
+1. *`current_revision` não criava o diretório do SQLite.* Num caminho default
+   virgem, `.specharness/` não existe, e o sqlite3 reporta diretório ausente
+   como "unable to open database file" — que a classificação, corretamente,
+   lia como `DatabaseNotFound`. O usuário receberia "o banco de dados não
+   existe" apontando para um problema que ele não tem. `migrate()` mascarava
+   isso porque já chamava `ensure_storage`.
+2. *O tratamento de erro do `command.upgrade` não tinha teste.* Ao escrever o
+   caso que faltava (banco alcançável, migração impossível por tabela
+   colidente) ficou claro que a cláusula `except DatabaseError: raise` era
+   código morto — nada dentro do Alembic levanta erro nosso. Removida.
+
+**D7 — `# pragma: no cover` usados, e por quê.**
+A métrica 4 proíbe pragma em caminho exigido por critério de aceite. Os dois
+usos não são: o guard de `after is None` em `migrate()` é estreitamento de
+tipo para um estado que o Alembic não produz, e o ramo offline do `env.py` só
+roda sob `alembic -x offline`, que nenhum critério cobre. Registrados aqui
+para serem escopo declarado.
+
+**D8 — Follow-ups aceitos, não fechados nesta entrega.**
+
+1. *`?sslmode=require` não é traduzido para asyncpg.* A query string é
+   preservada verbatim, e asyncpg usa `ssl=` em vez de `sslmode=`. Um usuário
+   com Postgres gerenciado (que costuma exigir TLS) veria a engine async
+   falhar onde a sync funciona. Nenhum critério cobre TLS; entra na spec que
+   ligar o server de fato.
+2. *A porta não tem Repository nem UnitOfWork.* Decisão E-b da gap analysis:
+   sem consumidor, o desenho erra. SPEC-009 e SPEC-013 desenham com o caso de
+   uso na mão.
+3. *`just cov-db` roda só com SQLite no job `test-integrity`.* O gate de 90%
+   é medido sem Postgres; a metade Postgres tem cobertura só no job `test`,
+   que não tem gate de cobertura do adapter.
+4. *`uv run` nos hooks do pre-commit re-resolve o `uv.lock`.* Commitar um
+   `pyproject.toml` de workspace sem o lock faz o hook reescrever um arquivo
+   staged e abortar o commit, com os arquivos vazando para o commit seguinte.
+   Aconteceu nesta entrega e foi corrigido no histórico. Merece hook próprio
+   ou nota no AGENTS.md.
