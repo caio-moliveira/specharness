@@ -15,6 +15,7 @@ success_metrics:
   - "Property-based: 0 crashes não-tratados em 1.000 inputs aleatórios (Hypothesis, max_examples=1000 fixado no teste)"
   - "Cobertura de testes do módulo specschema >= 95%, sem `# pragma: no cover` em caminho exigido por critério de aceite"
   - "Todo caminho de erro do parser tem teste que asserta substring acionável da mensagem"
+  - "Mutation score do módulo specschema >= 90% (`just mutants`), com sobreviventes registrados no corpo da spec"
 acceptance:
   - Spec válida (frontmatter + corpo) é parseada com todos os campos tipados
   - Documento sem frontmatter gera SpecParseError mencionando "frontmatter"
@@ -125,3 +126,44 @@ consequência de custo. O custo foi medido depois e não justifica a redução �
 na suíte padrão sem incômodo. Registrado assim para a decisão ficar
 auditável: voltar a 10.000 é trocar um literal, e o argumento contra não é
 técnico.
+
+**D6 — Mutation score é o critério de parada da verificação.**
+Três rodadas de verificação adversarial reprovaram esta spec sem achar **um
+único bug de produção**: todos os bloqueadores foram lacunas de teste, e o
+verificador registrou "produção está correta" nos casos que checou. A causa
+não era a implementação, era a redação: critérios como "todos os campos
+tipados" e "todo caminho de erro tem teste" são quantificadores universais, e
+teste de mutação sempre encontra um contraexemplo novo. Critério
+infalsificável em tempo finito não é critério — é esteira.
+
+Substituído por um número medível: `just mutants` aplica um catálogo
+declarado de mutantes em `specschema.py` e falha abaixo de 90%. Cobertura de
+linha diz que o teste *executou* o código; o mutation score diz que ele
+*provaria* uma quebra — foi exatamente a diferença que as três rodadas
+expuseram (100% de cobertura com mutantes vivos).
+
+Mutantes equivalentes ficam fora do catálogo de propósito, com justificativa
+no script: incluí-los rebaixa o score sem apontar defeito. Exemplo real desta
+spec: trocar `.match` por `.search` no frontmatter não altera comportamento,
+porque o padrão já começa com `\A`.
+
+Medido: **32/32 = 100%** (`just mutants`, limiar 90%).
+
+**D7 — Follow-ups aceitos, não fechados nesta entrega.**
+Registrados porque a 3ª verificação os apontou e a decisão foi seguir:
+
+1. *Campos tipados sem assert individual.* `owner`, `updated`, `sprint`,
+   `version` e `tracker_refs` estão na fixture `VALID_SPEC` e são parseados,
+   mas não têm assert dedicado — um mutante que os descartasse via `alias`
+   sobreviveria. O critério "todos os campos tipados" está coberto para os 9
+   campos restantes.
+2. *O property test exercita um ramo só.* Os 1.000 textos aleatórios morrem
+   todos no regex de abertura; rodando isolado, cobre 73% do módulo, sem
+   tocar `yaml.safe_load` nem `model_validate`. Gerar documentos **em forma
+   de** frontmatter cobriria o resto — mudar o número de exemplos, não.
+3. *Métrica 1 não é gate local.* `just lint && just test` não roda
+   `specs-validate`; uma regressão que quebrasse uma spec real só apareceria
+   no CI. Sugere um `just check` agregado.
+4. *Gate de cobertura do CI é 85% no pacote*, contra os 95% do módulo que
+   esta spec promete. Exige mudar `.github/workflows/`, que pede confirmação
+   humana.

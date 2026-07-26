@@ -22,6 +22,10 @@ status: ready
 type: feature
 owner: joao
 created: 2026-01-15
+updated: 2026-02-20
+version: 2.0
+sprint: 2026-S16
+tracker_refs: ["redmine#1873"]
 depends_on: [SPEC-001]
 success_metrics:
   - "Latencia p95 < 800ms"
@@ -95,6 +99,41 @@ Funcionalidade: unica
 ```yaml
 chave: valor de configuracao
 ```
+
+```go
+func naoEhCenario() {}
+```
+
+```gherkin-ish
+Isto parece gherkin mas o rotulo nao e
+```
+
+```gherkinx
+Rotulo com sufixo de palavra, nao e gherkin
+```
+"""
+
+
+BODY_WITH_RULE_SPEC = """\
+---
+spec: SPEC-046
+title: "Spec com regua horizontal no corpo"
+---
+
+## Contexto
+
+Texto antes da regua.
+
+---
+
+Texto depois da regua.
+
+```gherkin
+Funcionalidade: unica
+  Cenario: um
+    Quando algo acontece
+    Entao algo e verificado
+```
 """
 
 
@@ -164,11 +203,42 @@ def test_gherkin_blocks_ignores_other_fenced_languages():
     assert "CONSTANTE" not in joined
     assert "cerca nua" not in joined
     assert "valor de configuracao" not in joined
+    # Near-miss: `go` casa prefixo de "gherkin", `gherkin-ish` casa o rotulo
+    # mais sufixo nao-alfanumerico, `gherkinx` casa como substring de palavra.
+    # Cada um mata uma frouxidao diferente do regex.
+    assert "naoEhCenario" not in joined
+    assert "o rotulo nao e" not in joined
+    assert "sufixo de palavra" not in joined
 
 
 def test_rejects_document_without_frontmatter():
     with pytest.raises(SpecParseError, match="frontmatter"):
         parse_spec("# apenas markdown\n")
+
+
+def test_rejects_frontmatter_that_is_not_at_the_top():
+    """A cerca tem de ABRIR o documento (`match`, nao `search`).
+
+    Sem isto, um markdown com prosa antes de um bloco `---...---` passaria
+    como spec e o corpo entregue ao gate perderia a cabeca em silencio.
+    """
+    doc = '# notas\n\ntexto antes\n\n---\nspec: SPEC-042\ntitle: "x"\n---\n\nCorpo.\n'
+    with pytest.raises(SpecParseError, match="frontmatter"):
+        parse_spec(doc)
+
+
+def test_frontmatter_stops_at_the_first_closing_fence():
+    """Non-greedy: uma `---` no corpo nao pode estender o frontmatter.
+
+    Specs reais tem regua horizontal no corpo (SPEC-001, SPEC-002). Um regex
+    ganancioso comeria o corpo ate a ultima `---` e o Readiness Gate receberia
+    menos cenario do que existe.
+    """
+    parsed = parse_spec(BODY_WITH_RULE_SPEC)
+    assert parsed.spec_id == "SPEC-046"
+    assert parsed.body.lstrip().startswith("## Contexto")
+    assert "Texto depois da regua" in parsed.body
+    assert len(parsed.gherkin_blocks) == 1
 
 
 def test_rejects_syntactically_invalid_yaml():
