@@ -21,6 +21,10 @@ test-core:
 cov:
     uv run pytest packages/core --cov=specharness_core --cov-report=term-missing
 
+# Cobertura do adapter de banco (métrica da SPEC-004 — ADR-016: medida, não afirmada)
+cov-db:
+    uv run pytest packages/adapters --cov=specharness_adapters.db --cov-report=term-missing --cov-fail-under=90
+
 # Mutation score do parser: cobertura diz que o teste rodou, isto diz que ele prova
 mutants threshold="90":
     uv run python scripts/mutants.py --threshold {{threshold}}
@@ -51,9 +55,10 @@ evals:
 dev:
     uv run uvicorn specharness_server.app:app --reload --port 8321
 
-# Migrações de banco (habilitado quando Alembic entrar — SPEC-004)
+# Conecta e migra o banco. Mesmo caminho de código que o usuário roda (SPEC-004):
+# sem SPECHARNESS_DATABASE_URL cria o SQLite local; com ela, usa o seu Postgres.
 db-migrate:
-    @echo "Alembic entra na SPEC-004 (conexão de banco)."
+    uv run specharness connect db
 
 # Gera o sprint report do próprio specharness (habilitado na SPEC-015)
 report:
