@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just:*)",
+      "Bash(uv:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pytest:*)"
+    ],
+    "ask": [
+      "Edit(profiles/**)",
+      "Edit(.github/workflows/**)",
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Edit(uv.lock)",
+      "Bash(git push --force:*)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_TOOL_FILE_PATH\"; case \"$f\" in */specs/SPEC-*.md) uv run python .claude/hooks/schema_validate.py \"$f\";; esac"
+          }
+        ]
+      }
+    ]
+  }
+}

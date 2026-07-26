@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: spec-trailer-check
+        name: commit exige trailer 'Spec:' válido (ADR do projeto)
+        entry: uv run python .claude/hooks/trailer_check.py
+        language: system
+        stages: [commit-msg]
+      - id: spec-schema-validate
+        name: specs/*.md devem passar no schema (SPEC-001 §7)
+        entry: uv run python .claude/hooks/schema_validate.py
+        language: system
+        files: ^specs/.*\.md$

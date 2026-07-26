@@ -1,0 +1,22 @@
+# Serviços OPCIONAIS de desenvolvimento. O default (SQLite + API de LLM) não precisa de nada disso.
+services:
+  postgres:
+    image: postgres:17-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: specharness
+      POSTGRES_PASSWORD: specharness
+      POSTGRES_DB: specharness
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    ports: ["11434:11434"]
+    volumes: ["ollama:/root/.ollama"]
+    # Após subir: docker compose exec ollama ollama pull qwen3:8b
+
+volumes:
+  pgdata:
+  ollama:

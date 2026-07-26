@@ -1,0 +1,15 @@
+name: Feature
+description: Proposta de funcionalidade (vira spec antes de virar código)
+labels: [feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema / job-to-be-done
+      description: O que você precisa fazer que hoje não consegue?
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite (rascunho)
+      description: Como saberemos que está pronto? (vira BDD na spec)

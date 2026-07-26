@@ -1,0 +1,21 @@
+name: Harness profile desatualizado
+description: As práticas oficiais de um vendor mudaram (good first issue!)
+labels: [harness-profile, good first issue]
+body:
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options: [claude-code, codex, kimi]
+    validations: { required: true }
+  - type: input
+    id: source
+    attributes:
+      label: Fonte oficial da mudança (URL)
+      description: Obrigatório — profiles só aceitam práticas com fonte citada (ADR-004)
+    validations: { required: true }
+  - type: textarea
+    id: change
+    attributes:
+      label: O que mudou
+    validations: { required: true }

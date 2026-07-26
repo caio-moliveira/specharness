@@ -1,0 +1,14 @@
+# Harness profile: Claude Code (ADR-004)
+# REGRA: toda prática em practices/ cita a fonte oficial (URL + data de acesso).
+runtime: claude-code
+vendor: Anthropic
+version: 0.1.0
+reviewed_at: 2026-07-25
+status: skeleton   # skeleton -> draft -> reviewed
+sources:
+  - name: "Claude Code documentation"
+    url: "https://docs.claude.com/en/docs/claude-code"
+notes: >
+  Este profile nasce como esqueleto e amadurece durante a Fase B (SPEC de
+  harness generator). O harness deste próprio repositório (.claude/, AGENTS.md,
+  CLAUDE.md) é o protótipo vivo do que este profile generaliza.

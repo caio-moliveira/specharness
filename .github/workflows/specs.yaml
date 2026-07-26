@@ -1,0 +1,15 @@
+name: Specs
+on:
+  pull_request:
+    paths: ["specs/**"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync
+      - run: uv run python .claude/hooks/schema_validate.py specs/*.md
+      - run: uv run python -m evals.runner

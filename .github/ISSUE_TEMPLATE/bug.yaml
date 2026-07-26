@@ -1,0 +1,15 @@
+name: Bug
+description: Algo não funciona como especificado
+labels: [bug]
+body:
+  - type: input
+    id: spec
+    attributes:
+      label: Spec relacionada
+      description: Se souber, qual SPEC-NNN descreve o comportamento esperado?
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reprodução
+      description: Passos, comportamento esperado vs observado, versão
+    validations: { required: true }

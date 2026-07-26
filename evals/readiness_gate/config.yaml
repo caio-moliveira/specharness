@@ -1,0 +1,7 @@
+task: readiness_gate
+models:
+  - anthropic/claude-sonnet-4-6
+  - ollama/qwen3:8b
+  - ollama/llama3.3
+pass_criteria:
+  score_in_range_rate: 0.90   # SPEC-011 success_metric
