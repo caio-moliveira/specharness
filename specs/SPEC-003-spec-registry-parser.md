@@ -11,7 +11,7 @@ tracker_refs: []
 depends_on: [SPEC-001]
 adrs: [ADR-001]
 success_metrics:
-  - "100% dos arquivos specs/*.md deste repo parseiam sem erro"
+  - "100% dos arquivos specs/SPEC-*.md deste repo parseiam sem erro"
   - "Property-based: 0 crashes não-tratados em 1.000 inputs aleatórios (Hypothesis, max_examples=1000 fixado no teste)"
   - "Cobertura de testes do módulo specschema >= 95%, sem `# pragma: no cover` em caminho exigido por critério de aceite"
   - "Todo caminho de erro do parser tem teste que asserta substring acionável da mensagem"
