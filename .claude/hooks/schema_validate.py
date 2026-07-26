@@ -4,6 +4,8 @@ and by the Claude Code PostToolUse hook — a spec that doesn't parse never land
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +13,24 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "packages" / "core" / "src"))
 
 from specharness_core import SpecParseError, parse_spec  # noqa: E402
+
+
+def _previous_status(path: Path) -> str | None:
+    """Status da spec em HEAD, ou None se o arquivo é novo / git indisponível."""
+    rel = os.path.relpath(path.resolve(), REPO_ROOT)
+    proc = subprocess.run(
+        ["git", "show", f"HEAD:{rel}"], cwd=REPO_ROOT, capture_output=True, text=True
+    )
+    if proc.returncode != 0:
+        return None
+    try:
+        return parse_spec(proc.stdout).frontmatter.status.value
+    except SpecParseError:
+        return None
+
+
+def _in_ci() -> bool:
+    return os.environ.get("CI", "").lower() in {"true", "1"}
 
 
 def main(paths: list[str]) -> int:
@@ -31,6 +51,14 @@ def main(paths: list[str]) -> int:
             failures += 1
             continue
         seen[parsed.spec_id] = str(path)
+        if (
+            parsed.frontmatter.status.value == "done"
+            and not _in_ci()
+            and _previous_status(path) != "done"
+        ):
+            print(f"✗ {path}: transição para 'done' é exclusiva do CI (ADR-016)")
+            failures += 1
+            continue
         expected_prefix = parsed.spec_id
         if not path.name.startswith(expected_prefix):
             print(f"✗ {path}: nome do arquivo não começa com {expected_prefix}")

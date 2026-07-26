@@ -27,3 +27,15 @@ jobs:
         with: { enable-cache: true }
       - run: uv sync --python ${{ matrix.python-version }}
       - run: uv run pytest --cov=packages --cov-report=term-missing
+
+  test-integrity:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync
+      - run: uv run python scripts/test_integrity.py --base origin/${{ github.base_ref }}
+      - run: uv run pytest packages/core --cov=specharness_core --cov-fail-under=85

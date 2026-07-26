@@ -8,7 +8,7 @@ created: 2026-07-25
 sprint: 2026-A4
 tracker_refs: []
 depends_on: [SPEC-009, SPEC-012]
-adrs: [ADR-008]
+adrs: [ADR-008, ADR-016]
 success_metrics:
   - "Snapshots imutáveis: recálculo a partir dos eventos reproduz 100% dos valores (determinismo verificado em teste)"
   - "Turnover 30/90d calculado por spec com atribuição de linhas via blame na janela"
@@ -19,13 +19,16 @@ acceptance:
   - Snapshots são append-only; correções de cálculo geram nova série, nunca sobrescrevem
   - Nenhuma métrica é exposta por indivíduo; agregação mínima é spec/sprint/time
   - Toda métrica de volume só é exibida pareada com uma de qualidade
+  - Métricas são calculadas exclusivamente de artefatos brutos (git, CI, tracker); números auto-relatados por agentes nunca entram no cálculo (ADR-016)
+  - Sinais de test-tampering - asserts removidos, skips sem justificativa, tolerâncias afrouxadas em PR de implementação - integram o relatório de higiene da sprint
 ---
 
 ## Contexto
 
 A colheita automática da camada 2 (SPEC-001 §9), incluindo o requisito
 diferenciador: observar o código DEPOIS do merge para medir sobrevivência.
-ADR-008 (anti-vigilância) é invariante estrutural aqui, não guideline.
+ADR-008 (anti-vigilância) e ADR-016 (quem implementa não arbitra) são
+invariantes estruturais aqui, não guidelines.
 
 ## Cenários (BDD)
 
@@ -47,6 +50,16 @@ Funcionalidade: métricas objetivas por spec
     Dado o conjunto de eventos brutos de uma sprint encerrada
     Quando as métricas são recalculadas do zero
     Então todos os valores coincidem com os snapshots originais
+
+  Cenário: sinal de test-tampering entra na higiene
+    Dado um PR de implementação que remove asserts de testes existentes sem justificativa
+    Quando o cálculo de higiene da sprint executa
+    Então o relatório de higiene registra o sinal de tampering vinculado à spec do PR
+
+  Cenário: auto-relato de agente não entra no cálculo
+    Dado um relatório de entrega de agente alegando cobertura de 96 por cento
+    Quando o snapshot de métricas da sprint é calculado
+    Então o valor registrado deriva do artefato de cobertura do CI e o auto-relato é ignorado
 
   Cenário: agregação nunca expõe indivíduo
     Dado uma consulta de métricas filtrada por autor específico

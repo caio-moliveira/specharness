@@ -11,6 +11,7 @@
       "Bash(pytest:*)"
     ],
     "ask": [
+      "Edit(packages/**/tests/**)",
       "Edit(profiles/**)",
       "Edit(.github/workflows/**)",
       "Bash(git push:*)"

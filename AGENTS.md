@@ -54,6 +54,30 @@ just dev            # server local na porta 8321
 4. Commit com trailer. Atualize o `status` da spec quando aplicável
    (`in_progress` → `verifying` quando os testes cobrem os cenários).
 
+## Quem implementa não arbitra (ADR-016)
+
+- Seu auto-relato é **alegação**; evidência vem de artefatos (runs de CI,
+  coverage, git). Nunca reporte uma métrica sem o comando que a mediu.
+- `status: done` é exclusivo do CI — o hook rejeita edição local. Seu teto é
+  `verifying`.
+- Testes não são afrouxados em tarefa de implementação: remover asserts,
+  adicionar skip/xfail sem `reason=`, afrouxar tolerâncias — tudo isso é
+  barrado por `just test-integrity` e pelo CI. Precisa mudar um teste
+  legitimamente? Explique o motivo no commit e mantenha o saldo de asserts.
+- Toda entrega passa pelo subagente `verificar-spec` (contexto limpo) antes
+  do relatório final.
+
+## Definition of Done por spec (contrato de entrega)
+
+1. Código dentro das fronteiras de arquitetura, no package certo
+2. Matriz cenário × teste completa (todo cenário Gherkin da spec → teste)
+3. `just lint && just test` e `just test-integrity` verdes, com success_metrics
+   **medidas** (valor + comando), não afirmadas
+4. Commits pequenos com trailer `Spec: SPEC-NNN`
+5. Spec atualizada (status até `verifying`, desvios registrados no corpo)
+6. Relatório de entrega via skill `entregar-spec`, aprovado pelo
+   `verificar-spec`
+
 ## Qualidade
 
 - pyright `strict` em `core/` e `metrics/` — sem `# type: ignore` sem

@@ -31,6 +31,10 @@ fix:
 specs-validate:
     uv run python .claude/hooks/schema_validate.py specs/*.md
 
+# Integridade dos testes vs base (anti reward-hacking — ADR-016)
+test-integrity base="main":
+    uv run python scripts/test_integrity.py --base {{base}}
+
 # Roda os golden datasets de evals (placeholder Fase A — SPEC-011)
 evals:
     uv run python -m evals.runner

@@ -8,7 +8,7 @@ created: 2026-07-25
 sprint: 2026-A3
 tracker_refs: []
 depends_on: [SPEC-003, SPEC-009]
-adrs: []
+adrs: [ADR-016]
 success_metrics:
   - "First-run BDD pass registrado por spec em 100% das execuções (a métrica-mãe da camada 2)"
   - "Overhead do verify no CI < 30s além do tempo dos próprios testes"
@@ -19,13 +19,16 @@ acceptance:
   - Transição verifying -> done é bloqueada se qualquer cenário da spec falhar
   - Cenário sem step definition é reportado como pendente, distinto de falha
   - Saída em modo CI usa exit code e resumo legível por máquina
+  - A transição verifying para done é executada exclusivamente pelo pipeline de CI; edição direta de status para done é rejeitada (ADR-016)
+  - first-run é registrado apenas a partir do primeiro run no CI após ready; execuções locais do verify são informativas e nunca geram first-run
 ---
 
 ## Contexto
 
 Fecha o contrato: spec só é done com comportamento comprovado (SPEC-001 §7.2).
-A primeira execução após ready é marcada first-run — o sinal mais limpo da
-qualidade do par spec+agente (§9 camada 2).
+A primeira execução **no CI** após ready é marcada first-run — o sinal mais
+limpo da qualidade do par spec+agente (§9 camada 2). O CI é o único árbitro:
+quem implementa não arbitra (ADR-016).
 
 ## Cenários (BDD)
 
@@ -47,6 +50,16 @@ Funcionalidade: BDD como gate de conclusão
     Dado uma spec que acabou de sair de ready para in_progress
     Quando o verify executa pela primeira vez após a implementação
     Então o resultado é registrado com a marcação de first-run
+
+  Cenário: done fora do CI é rejeitado
+    Dado uma spec em verifying com o status editado localmente para done
+    Quando a validação de schema processa a mudança fora do CI
+    Então a transição é rejeitada com referência ao ADR-016
+
+  Cenário: execução local não conta como first-run
+    Dado uma spec cujos cenários foram executados localmente antes de qualquer run no CI
+    Quando o primeiro run no CI acontece após ready
+    Então apenas o run do CI é registrado com a marcação de first-run
 
   Cenário: step ausente é pendência, não falha
     Dado uma spec com cenário sem step definition correspondente
