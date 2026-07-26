@@ -17,6 +17,10 @@ test:
 test-core:
     uv run pytest packages/core
 
+# Cobertura do core, por módulo (métrica das specs — ADR-016: medida, não afirmada)
+cov:
+    uv run pytest packages/core --cov=specharness_core --cov-report=term-missing
+
 # Lint + format check + tipos
 lint:
     uv run ruff check .
