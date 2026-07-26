@@ -1,6 +1,9 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    # Deve acompanhar a versão de ruff resolvida em uv.lock: com versões
+    # diferentes, `just lint` e o pre-commit reformatam um contra o outro e
+    # o commit nunca fecha (visto com 0.8.4 aqui vs. 0.16.0 no .venv).
+    rev: v0.16.0
     hooks:
       - id: ruff
         args: [--fix]
