@@ -19,6 +19,12 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+
+# Consoles Windows usam cp1252 por padrão: sem isto, o print dos marcadores
+# ✓/✗/⚠ levanta UnicodeEncodeError e o gate falha por causa do console.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 ASSERT_RE = re.compile(r"^\s*assert\b")
 SKIP_RE = re.compile(r"pytest\.mark\.(skip|skipif|xfail)|\bunittest\.skip")
 REASON_RE = re.compile(r"reason\s*=")
