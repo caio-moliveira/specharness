@@ -1,7 +1,7 @@
 ---
 spec: SPEC-004
 title: "Onboarding: conexão de banco (SQLite default, Postgres opcional)"
-status: ready
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-25
