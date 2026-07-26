@@ -12,6 +12,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "packages" / "core" / "src"))
 
+# Consoles Windows usam cp1252 por padrão: sem isto, o print dos marcadores
+# ✓/✗ levanta UnicodeEncodeError e o hook reprova uma spec que parseou bem.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from specharness_core import SpecParseError, parse_spec  # noqa: E402
 
 

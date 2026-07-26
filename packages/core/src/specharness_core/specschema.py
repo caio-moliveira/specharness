@@ -112,7 +112,7 @@ def parse_spec(text: str) -> ParsedSpec:
         raise SpecParseError("document has no YAML frontmatter block ('---' fences)")
     try:
         raw = yaml.safe_load(match.group(1))
-    except yaml.YAMLError as exc:  # pragma: no cover - message passthrough
+    except yaml.YAMLError as exc:
         raise SpecParseError(f"invalid YAML in frontmatter: {exc}") from exc
     if not isinstance(raw, dict):
         raise SpecParseError("frontmatter must be a YAML mapping")

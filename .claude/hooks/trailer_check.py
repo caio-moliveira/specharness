@@ -13,6 +13,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "packages" / "core" / "src"))
 
+# Consoles Windows usam cp1252 por padrão: sem isto, o print dos marcadores
+# ✓/✗ levanta UnicodeEncodeError e o commit-msg falha por causa do console.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from specharness_core import parse_spec, valid_spec_trailers  # noqa: E402
 
 EXEMPT_PREFIXES = ("Merge ", "fixup!", "squash!", "chore(release)")
