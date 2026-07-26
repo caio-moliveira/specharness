@@ -167,3 +167,20 @@ Registrados porque a 3ª verificação os apontou e a decisão foi seguir:
 4. *Gate de cobertura do CI é 85% no pacote*, contra os 95% do módulo que
    esta spec promete. Exige mudar `.github/workflows/`, que pede confirmação
    humana.
+5. *`just mutants` não roda no CI.* A métrica de mutação é local; apodrece
+   pelo mesmo motivo do item 4 e exige a mesma confirmação humana.
+6. *Sobreviventes fora do catálogo, aceitos por baixa severidade.* Uma sonda
+   independente na 4ª verificação achou seis, nenhum ligado a critério de
+   aceite: os valores de string de `SpecStatus.IN_PROGRESS`, `ARCHIVED` e
+   `SpecType.HARNESS` (nada amarra membro do enum ao wire format), `\d{3,}`
+   → `\d{3}` no id (rejeitaria SPEC-1000 em diante), `except yaml.YAMLError`
+   → `except Exception`, e o `.lstrip()` do corpo. Registrados aqui para
+   serem escopo declarado, não redescoberta na próxima rodada.
+
+**Nota sobre a aritmética do score.** 100% é relativo ao catálogo declarado
+em `scripts/mutants.py`, não ao universo de mutações possíveis do módulo. Com
+os cinco campos do item 1 incluídos seriam 32/37 = 86,5%; somado o conjunto
+independente da 4ª verificação, 32/44 = 72,7%. A métrica se define como
+"(`just mutants`)" de propósito — um catálogo versionado e auditável vale
+mais que um número absoluto inatingível —, mas o leitor deve saber que o
+denominador é uma escolha registrada, não uma lei da natureza.

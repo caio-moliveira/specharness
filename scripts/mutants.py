@@ -234,6 +234,19 @@ def main() -> int:
     backup = Path(tempfile.mkdtemp()) / "specschema.orig"
     backup.write_text(original, encoding="utf-8")
 
+    # Baseline obrigatório: sem ele, uma suíte já vermelha faria TODO mutante
+    # ser lido como "morto" e o script imprimiria 100% saindo com 0 — um score
+    # perfeito alcançável quebrando os testes, dentro da própria ferramenta
+    # anti-reward-hacking (ADR-016).
+    print("baseline: suíte sem mutação...")
+    if not run_suite():
+        print(
+            "  SUÍTE VERMELHA — abortado. Score de mutação só tem sentido sobre\n"
+            "  baseline verde; medido assim, todo mutante pareceria morto."
+        )
+        return 1
+    print("  ok, baseline verde\n")
+
     survivors: list[str] = []
     invalid: list[str] = []
     try:
