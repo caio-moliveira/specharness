@@ -1,3 +1,15 @@
+<p align="center">
+  <img src="brand/logo.svg" width="96" alt="specharness"><br>
+  <img src="brand/wordmark-dark.svg" width="340" alt="specharness">
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-F2542D" alt="License"></a>
+  <img src="https://img.shields.io/badge/spec--driven-dogfooding-F2542D" alt="Spec-driven">
+  <img src="https://img.shields.io/badge/core_coverage-97%25-22C55E" alt="Coverage">
+  <img src="https://img.shields.io/badge/status-pre--alpha_Fase_A-F59E0B" alt="Status">
+</p>
+
 # specharness
 
 > **From first idea to final report:** the open source decision, quality and
@@ -62,6 +74,7 @@ specs/              the backlog — specs with BDD + success metrics (dogfooding
 evals/              golden datasets for every LLM task
 profiles/           harness best-practice packs per coding agent (data, not code)
 docs/adrs/          every architecture decision, with alternatives considered
+brand/              visual identity: H-gate logo, tokens, usage rules (ADR-017)
 .claude/            the dev harness: skills, hooks, permissions
 ```
 

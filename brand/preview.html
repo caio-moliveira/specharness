@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>specharness — identidade visual v1</title>
+<link rel="icon" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#101014; --panel:#17171C; --border:#26262E; --text:#E7E7EA; --muted:#8B8B96;
+    --orange:#F2542D; --orange-h:#FF6A3D; --green:#22C55E; --amber:#F59E0B; --red:#EF4444;
+    --radius:6px; --sans:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.55;padding:48px 24px 96px}
+  .wrap{max-width:1040px;margin:0 auto}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  a{color:var(--orange);text-decoration:none} a:hover{color:var(--orange-h)}
+
+  header{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+  header img{height:56px}
+  .sub{color:var(--muted);font-family:var(--mono);font-size:12px;margin-bottom:40px}
+
+  h2{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:48px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+
+  /* ---- hero: card de pipeline (a tese) ---- */
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+  .pipeline{display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:start}
+  .hgate{width:64px;height:64px;flex:none}
+  .spec-id{font-family:var(--mono);font-weight:700;font-size:16px}
+  .spec-title{font-weight:600;font-size:16px;margin:2px 0 10px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap}
+  .badge{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--border);color:var(--muted)}
+  .badge.orange{border-color:var(--orange);color:var(--orange)}
+  .badge.amber{border-color:var(--amber);color:var(--amber)}
+  .badge.green{border-color:var(--green);color:var(--green)}
+  .score{text-align:right}
+  .score .n{font-family:var(--mono);font-size:34px;font-weight:700;color:var(--green);line-height:1}
+  .score .l{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:16px}
+  .gate{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;font-family:var(--mono);font-size:12px}
+  .gate .ok{color:var(--green)} .gate .pend{color:var(--amber)}
+  .prov{color:var(--muted);font-size:11px}
+  .rule{margin-top:14px;color:var(--muted);font-size:12px}
+  .rule b{color:var(--text)}
+
+  /* ---- paleta ---- */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .sw{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .sw .c{height:56px}
+  .sw .i{padding:8px 10px;font-family:var(--mono);font-size:11px}
+  .sw .i b{display:block;font-size:12px;color:var(--text)} .sw .i span{color:var(--muted)}
+
+  /* ---- tipografia ---- */
+  .type .display{font-size:30px;font-weight:600;letter-spacing:-.02em}
+  .type .mono-d{font-family:var(--mono);font-size:20px;font-weight:700;margin-top:10px}
+  .type p{color:var(--muted);margin-top:8px;max-width:640px}
+
+  /* ---- componentes ---- */
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{font-family:var(--sans);font-weight:500;font-size:13px;border-radius:var(--radius);padding:8px 16px;border:1px solid transparent;cursor:pointer;transition:background .12s}
+  .btn.primary{background:var(--orange);color:#fff} .btn.primary:hover{background:var(--orange-h)}
+  .btn.outline{background:transparent;border-color:var(--border);color:var(--text)} .btn.outline:hover{border-color:var(--muted)}
+  .btn.ghost{background:transparent;color:var(--muted)} .btn.ghost:hover{color:var(--text)}
+  .btn:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+  .statuses .badge.done{background:rgba(34,197,94,.12)}
+  .statuses .badge.arch{text-decoration:line-through}
+  .chip{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-family:var(--mono);font-size:12px}
+  .metric{border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;min-width:180px}
+  .metric .v{font-family:var(--mono);font-size:26px;font-weight:700}
+  .metric .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .metric .p{margin-top:6px;font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+  /* logos */
+  .logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .logo-tile{border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;padding:24px;gap:12px}
+  .logo-tile.light{background:#FAFAF8}
+  .logo-tile img{height:64px} .logo-tile img.small{height:20px} .logo-tile img.mid{height:32px}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="wordmark-dark.svg" alt="specharness">
+  </header>
+  <div class="sub">identidade visual v1 · direção "Gate &amp; Evidence" · ADR-017</div>
+
+  <!-- A TESE: um pedaço real do produto -->
+  <div class="card">
+    <div class="pipeline">
+      <svg class="hgate" viewBox="0 0 128 128" aria-label="readiness 92">
+        <rect width="128" height="128" rx="28" fill="#101014" stroke="#26262E"/>
+        <g stroke="#F2542D" stroke-width="14" stroke-linecap="round" fill="none">
+          <path d="M40 26 V102"/><path d="M40 42 H88"/><path d="M88 42 V102"/>
+        </g>
+      </svg>
+      <div>
+        <span class="spec-id">SPEC-009</span>
+        <div class="spec-title">track: linking commit→spec via trailer e detecção de órfãos</div>
+        <div class="badges">
+          <span class="badge amber">verifying</span>
+          <span class="badge">sprint 2026-A2</span>
+          <span class="badge">Spec: SPEC-009 · 7 commits</span>
+        </div>
+      </div>
+      <div class="score">
+        <div class="n num">92</div>
+        <div class="l">readiness</div>
+        <div class="prov num">via gate run · 2026-07-26</div>
+      </div>
+    </div>
+    <div class="gates">
+      <div class="gate"><span>BDD 4/4</span><span class="ok">✓ verde</span></div>
+      <div class="gate"><span>lint + types</span><span class="ok">✓ verde</span></div>
+      <div class="gate"><span>test-integrity</span><span class="ok">✓ verde</span></div>
+      <div class="gate"><span>eval golden</span><span class="pend">● pendente de CI</span></div>
+    </div>
+    <div class="rule">A travessa do H-gate sobe com o score. <b>Verde só aparece no que foi provado</b> — o eval ainda não rodou no CI, então fica âmbar. Todo número carrega proveniência.</div>
+  </div>
+
+  <h2>Paleta</h2>
+  <div class="swatches">
+    <div class="sw"><div class="c" style="background:#101014"></div><div class="i"><b>Graphite</b><span>#101014 · fundo</span></div></div>
+    <div class="sw"><div class="c" style="background:#17171C"></div><div class="i"><b>Panel</b><span>#17171C · cards</span></div></div>
+    <div class="sw"><div class="c" style="background:#26262E"></div><div class="i"><b>Border</b><span>#26262E · bordas</span></div></div>
+    <div class="sw"><div class="c" style="background:#F2542D"></div><div class="i"><b>Harness Orange</b><span>#F2542D · marca/ação</span></div></div>
+    <div class="sw"><div class="c" style="background:#22C55E"></div><div class="i"><b>Evidence</b><span>#22C55E · só provado</span></div></div>
+    <div class="sw"><div class="c" style="background:#F59E0B"></div><div class="i"><b>Amber</b><span>#F59E0B · 70–89/pendente</span></div></div>
+    <div class="sw"><div class="c" style="background:#EF4444"></div><div class="i"><b>Red</b><span>#EF4444 · &lt;70/falha</span></div></div>
+    <div class="sw"><div class="c" style="background:#8B8B96"></div><div class="i"><b>Muted</b><span>#8B8B96 · secundário</span></div></div>
+  </div>
+
+  <h2>Tipografia</h2>
+  <div class="card type">
+    <div class="display">Specs prontas produzem código que sobrevive.</div>
+    <div class="mono-d num">SPEC-013 · turnover 30d: 11.4% · razão 1.2x baseline</div>
+    <p>Inter carrega a interface; JetBrains Mono carrega tudo que é contrato — IDs de spec, trailers, números de métricas (sempre com tabular figures). A hierarquia vem de peso e cor, não de tamanho gritado.</p>
+  </div>
+
+  <h2>Componentes</h2>
+  <div class="card">
+    <div class="row" style="margin-bottom:16px">
+      <button class="btn primary">Rodar Readiness Gate</button>
+      <button class="btn outline">Ver pipeline</button>
+      <button class="btn ghost">Exportar</button>
+    </div>
+    <div class="row statuses" style="margin-bottom:16px">
+      <span class="badge">draft</span>
+      <span class="badge" style="color:var(--text)">approved</span>
+      <span class="badge green">ready</span>
+      <span class="badge orange">in_progress</span>
+      <span class="badge amber">verifying</span>
+      <span class="badge green done">done ✓</span>
+      <span class="badge arch">archived</span>
+    </div>
+    <div class="row" style="margin-bottom:16px">
+      <span class="chip"><span style="color:var(--green)">✓ BDD verde</span><span class="prov">via CI run #142</span></span>
+      <span class="chip"><span>first-run pass 78%</span><span class="prov">via CI · sprint A2</span></span>
+      <span class="chip"><span style="color:var(--red)">✗ 2 asserts removidos</span><span class="prov">test-integrity</span></span>
+    </div>
+    <div class="row">
+      <div class="metric"><div class="v num">78%</div><div class="k">first-run pass</div><div class="p">via CI · 9 specs</div></div>
+      <div class="metric"><div class="v num">4,2d</div><div class="k">cycle time p50</div><div class="p">via tracker+git</div></div>
+      <div class="metric"><div class="v num" style="color:var(--amber)">1.6x</div><div class="k">turnover vs baseline</div><div class="p">via git blame 30d</div></div>
+    </div>
+  </div>
+
+  <h2>Marca</h2>
+  <div class="logos">
+    <div class="logo-tile"><img src="logo.svg" alt="tile"></div>
+    <div class="logo-tile"><img src="logo-mark.svg" alt="glifo laranja"></div>
+    <div class="logo-tile light"><img src="logo-mark-black.svg" alt="glifo preto"></div>
+    <div class="logo-tile"><img src="favicon.svg" class="mid" alt="favicon 32"><img src="favicon.svg" class="small" alt="favicon 20"></div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 128" width="560" height="128" role="img" aria-label="specharness">
+  <rect x="0" y="16" width="96" height="96" rx="22" fill="#101014"/>
+  <g stroke="#F2542D" stroke-width="11" stroke-linecap="round" fill="none">
+    <path d="M30 36 V93"/>
+    <path d="M30 57 H66"/>
+    <path d="M66 57 V93"/>
+  </g>
+  <text x="118" y="84" font-family="'JetBrains Mono','SFMono-Regular',ui-monospace,monospace" font-size="52" font-weight="700" fill="#E7E7EA" letter-spacing="-1">spec</text>
+  <text x="252" y="84" font-family="Inter,'Segoe UI',system-ui,sans-serif" font-size="52" font-weight="600" fill="#F2542D" letter-spacing="-1.5">harness</text>
+</svg>

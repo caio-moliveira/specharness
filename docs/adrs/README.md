@@ -21,3 +21,4 @@ registre um novo que o substitua (skill `registrar-adr`).
 | [ADR-014](ADR-014-openapi-codegen.md) | Cliente TypeScript gerado do OpenAPI (hey-api) | aceita |
 | [ADR-015](ADR-015-justfile-task-runner.md) | justfile como task runner único | aceita |
 | [ADR-016](ADR-016-separacao-implementacao-verificacao.md) | Quem implementa não arbitra: separação implementação/verificação | aceita |
+| [ADR-017](ADR-017-identidade-visual.md) | Identidade visual "Gate & Evidence" | aceita |

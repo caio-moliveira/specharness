@@ -1,0 +1,69 @@
+/* specharness — design tokens v1 (ADR-017, direção "Gate & Evidence")
+   Compatível com shadcn/ui (Tailwind). Importar no web/ quando o scaffold
+   entrar (SPEC-016). Regra de ouro: --evidence NUNCA é decoração. */
+
+:root {
+  /* base clara (docs/relatórios impressos) */
+  --background: 60 17% 98%;        /* #FAFAF8 */
+  --foreground: 240 11% 7%;        /* #101014 graphite */
+  --card: 0 0% 100%;
+  --card-foreground: 240 11% 7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 11% 7%;
+  --primary: 12 88% 56%;           /* #F2542D harness orange */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 6% 93%;
+  --secondary-foreground: 240 11% 7%;
+  --muted: 240 6% 93%;
+  --muted-foreground: 240 5% 42%;
+  --accent: 12 88% 56%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;        /* #EF4444 */
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 88%;
+  --input: 240 6% 88%;
+  --ring: 12 88% 56%;
+  --radius: 0.375rem;              /* 6px — instrumento, não brinquedo */
+
+  /* semântica specharness */
+  --evidence: 142 71% 45%;         /* #22C55E — SÓ gates/BDD/evals provados */
+  --readiness-low: 0 84% 60%;      /* score < 70 */
+  --readiness-mid: 38 92% 50%;     /* 70–89  #F59E0B */
+  --readiness-high: 142 71% 45%;   /* >= 90 */
+  --provenance: 240 5% 57%;        /* chips "via CI run #N" */
+
+  --chart-1: 12 88% 56%;
+  --chart-2: 142 71% 45%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 240 5% 57%;
+  --chart-5: 0 84% 60%;
+
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+.dark {
+  /* dark-first: o habitat natural do produto */
+  --background: 240 11% 7%;        /* #101014 */
+  --foreground: 240 6% 91%;        /* #E7E7EA */
+  --card: 240 10% 10%;             /* #17171C panel */
+  --card-foreground: 240 6% 91%;
+  --popover: 240 10% 10%;
+  --popover-foreground: 240 6% 91%;
+  --primary: 12 88% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 10% 14%;
+  --secondary-foreground: 240 6% 91%;
+  --muted: 240 10% 14%;
+  --muted-foreground: 240 5% 57%;  /* #8B8B96 */
+  --accent: 12 88% 56%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 10% 17%;           /* #26262E */
+  --input: 240 10% 17%;
+  --ring: 12 88% 56%;
+}
+
+/* Números sempre com tabular figures — dashboards não dançam */
+.tabular, [data-metric] { font-variant-numeric: tabular-nums; }

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#101014"/>
+  <g stroke="#1C1C22" stroke-width="1">
+    <path d="M0 157.5 H1200 M0 315 H1200 M0 472.5 H1200 M300 0 V630 M600 0 V630 M900 0 V630"/>
+  </g>
+  <g stroke="#F2542D" stroke-width="30" stroke-linecap="round" fill="none">
+    <path d="M170 170 V460"/>
+    <path d="M170 278 H358"/>
+    <path d="M358 278 V460"/>
+  </g>
+  <text x="480" y="272" font-family="'JetBrains Mono',ui-monospace,monospace" font-size="88" font-weight="700" fill="#E7E7EA" letter-spacing="-2">spec</text>
+  <text x="706" y="272" font-family="Inter,system-ui,sans-serif" font-size="88" font-weight="600" fill="#F2542D" letter-spacing="-3">harness</text>
+  <text x="482" y="336" font-family="Inter,system-ui,sans-serif" font-size="30" fill="#8B8B96">From first idea to final report — the decision, quality</text>
+  <text x="482" y="378" font-family="Inter,system-ui,sans-serif" font-size="30" fill="#8B8B96">and metrics layer for spec-driven development.</text>
+  <g font-family="'JetBrains Mono',ui-monospace,monospace" font-size="22">
+    <rect x="482" y="418" width="252" height="44" rx="8" fill="none" stroke="#26262E"/>
+    <text x="502" y="447" fill="#22C55E">✓ BDD green</text>
+    <text x="646" y="447" fill="#8B8B96">via CI</text>
+    <rect x="754" y="418" width="240" height="44" rx="8" fill="none" stroke="#26262E"/>
+    <text x="774" y="447" fill="#E7E7EA">Spec: SPEC-009</text>
+  </g>
+</svg>
