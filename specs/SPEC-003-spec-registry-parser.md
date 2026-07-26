@@ -12,7 +12,7 @@ depends_on: [SPEC-001]
 adrs: [ADR-001]
 success_metrics:
   - "100% dos arquivos specs/*.md deste repo parseiam sem erro"
-  - "Property-based: 0 crashes não-tratados em 10.000 inputs aleatórios (Hypothesis)"
+  - "Property-based: 0 crashes não-tratados em 1.000 inputs aleatórios (Hypothesis, max_examples=1000 fixado no teste)"
   - "Cobertura de testes do módulo specschema >= 95%, sem `# pragma: no cover` em caminho exigido por critério de aceite"
   - "Todo caminho de erro do parser tem teste que asserta substring acionável da mensagem"
 acceptance:
@@ -107,3 +107,13 @@ SPEC-003 está `in_progress` dependendo de SPEC-001, que segue em `draft`: o
 contrato que esta spec implementa não está aprovado. Mudar o status do
 documento fundador é decisão fora do escopo desta spec e fica registrada como
 pendência.
+
+**D5 — Métrica de property-based baixada de 10.000 para 1.000 inputs.**
+A métrica original dizia 10.000, mas `test_parser_never_crashes_unexpectedly`
+nunca teve `@settings`: rodava no default do Hypothesis (100 exemplos). O
+número era afirmado, não medido — exatamente o que ADR-016 proíbe. Em vez de
+inflar o teste até 10.000, a métrica passa a 1.000 **fixado via
+`@settings(max_examples=1000)`**, para que o valor viva no código e não na
+prosa. Custo medido: 0,69s no arquivo de teste inteiro (`uv run pytest` sobre
+a property isolada) — barato o bastante para ficar na suíte padrão, sem
+marker separado.
