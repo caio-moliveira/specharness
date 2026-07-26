@@ -1,7 +1,7 @@
 ---
 spec: SPEC-003
 title: "Spec Registry: parser, schema e ciclo de vida"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
