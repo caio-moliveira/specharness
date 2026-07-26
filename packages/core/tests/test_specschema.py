@@ -1,6 +1,7 @@
 """Tests for the spec parser — the central contract (SPEC-003)."""
 
 import contextlib
+from datetime import date
 
 import pytest
 from hypothesis import given, settings
@@ -8,6 +9,7 @@ from hypothesis import strategies as st
 from specharness_core import (
     SpecParseError,
     SpecStatus,
+    SpecType,
     can_transition,
     parse_spec,
 )
@@ -19,6 +21,7 @@ title: "Busca por termo exato"
 status: ready
 type: feature
 owner: joao
+created: 2026-01-15
 depends_on: [SPEC-001]
 success_metrics:
   - "Latencia p95 < 800ms"
@@ -72,7 +75,34 @@ def test_parses_valid_spec():
     assert parsed.frontmatter.status is SpecStatus.READY
     assert parsed.frontmatter.success_metrics == ["Latencia p95 < 800ms"]
     assert parsed.frontmatter.depends_on == ["SPEC-001"]
+    # `created` e a unica coercao nao trivial do schema: str YAML -> date.
+    assert parsed.frontmatter.created == date(2026, 1, 15)
+    assert parsed.frontmatter.type is SpecType.FEATURE
+    assert parsed.frontmatter.acceptance == ["Busca retorna resultados com o termo destacado"]
     assert "## Contexto" in parsed.body
+
+
+def test_body_excludes_frontmatter():
+    """O corpo alimenta o Readiness Gate: o frontmatter nao pode vazar nele."""
+    parsed = parse_spec(VALID_SPEC)
+    assert not parsed.body.lstrip().startswith("---")
+    assert "spec: SPEC-042" not in parsed.body
+    assert "Latencia p95" not in parsed.body
+
+
+def test_rejects_frontmatter_missing_required_fields():
+    """D1: `spec` e `title` sao os unicos obrigatorios — e sao mesmo.
+
+    A metade oposta de D1 (todo o resto e opcional) e provada por
+    TWO_GHERKIN_SPEC, que declara so esses dois campos e parseia.
+    """
+    with pytest.raises(SpecParseError, match="Field required") as sem_title:
+        parse_spec("---\nspec: SPEC-042\n---\n\nCorpo.\n")
+    assert "title" in str(sem_title.value)
+
+    with pytest.raises(SpecParseError, match="Field required") as sem_spec:
+        parse_spec('---\ntitle: "Sem id"\n---\n\nCorpo.\n')
+    assert "spec" in str(sem_spec.value)
 
 
 def test_extracts_gherkin_blocks():

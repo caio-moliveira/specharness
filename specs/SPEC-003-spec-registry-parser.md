@@ -108,12 +108,20 @@ contrato que esta spec implementa não está aprovado. Mudar o status do
 documento fundador é decisão fora do escopo desta spec e fica registrada como
 pendência.
 
-**D5 — Métrica de property-based baixada de 10.000 para 1.000 inputs.**
-A métrica original dizia 10.000, mas `test_parser_never_crashes_unexpectedly`
-nunca teve `@settings`: rodava no default do Hypothesis (100 exemplos). O
-número era afirmado, não medido — exatamente o que ADR-016 proíbe. Em vez de
-inflar o teste até 10.000, a métrica passa a 1.000 **fixado via
-`@settings(max_examples=1000)`**, para que o valor viva no código e não na
-prosa. Custo medido: 0,69s no arquivo de teste inteiro (`uv run pytest` sobre
-a property isolada) — barato o bastante para ficar na suíte padrão, sem
-marker separado.
+**D5 — Métrica de property-based fixada em 1.000 inputs (era 10.000).**
+Duas coisas separadas aqui.
+
+*O defeito:* a métrica dizia 10.000, mas
+`test_parser_never_crashes_unexpectedly` nunca teve `@settings` — rodava no
+default do Hypothesis, 100 exemplos. O número era afirmado e nunca medido,
+exatamente o que ADR-016 proíbe. Corrigido fixando
+`@settings(max_examples=1000)`: o valor passa a viver no código, e quem roda a
+suíte mede o que a spec promete.
+
+*A escolha do número:* 1.000 é **decisão de escopo do dono do projeto**, não
+consequência de custo. O custo foi medido depois e não justifica a redução —
+1.000 exemplos gastam 0,27s de generate phase
+(`--hypothesis-show-statistics`), então 10.000 custariam ~2,7s, o que caberia
+na suíte padrão sem incômodo. Registrado assim para a decisão ficar
+auditável: voltar a 10.000 é trocar um literal, e o argumento contra não é
+técnico.
