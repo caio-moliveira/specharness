@@ -100,6 +100,6 @@ dev: seed
 db-migrate:
     uv run specharness connect db
 
-# Gera o sprint report do próprio specharness (habilitado na SPEC-015)
-report:
-    @echo "O módulo report entra na SPEC-015."
+# Gera o sprint report do próprio specharness (SPEC-015)
+report sprint="2026-A4":
+    uv run specharness report {{sprint}}
