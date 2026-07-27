@@ -1,7 +1,7 @@
 ---
 spec: SPEC-005
 title: "Onboarding: conexão LLM obrigatória (provedores via API ou Ollama local)"
-status: approved
+status: ready
 type: feature
 owner: caio
 created: 2026-07-25
@@ -36,7 +36,7 @@ Funcionalidade: conexão LLM no onboarding
   Cenário: validação de provedor via API
     Dado que ANTHROPIC_API_KEY está definida no ambiente
     Quando o usuário executa "specharness llm test"
-    Então uma chamada real com structured output é validada e o relatório mostra modelo e latência
+    Então uma chamada real com structured output é validada e o relatório mostra modelo, latência e custo estimado
 
   Cenário: Ollama local como caminho de custo zero
     Dado que não há key de provedor e o Ollama responde em localhost
@@ -53,4 +53,19 @@ Funcionalidade: conexão LLM no onboarding
     Dado um specharness.yaml com modelo distinto para a tarefa "readiness_gate"
     Quando o gate executa uma avaliação
     Então a chamada usa o modelo configurado para a tarefa e não o default
+
+  Cenário: base_url customizada para gateway corporativo
+    Dado que AZURE_OPENAI_API_KEY e AZURE_OPENAI_ENDPOINT estão definidas
+    Quando o alvo de LLM é resolvido para o teste
+    Então a base_url do endpoint informado é usada na chamada, não a padrão do provedor
+
+  Cenário: fallback quando o provedor principal falha em runtime
+    Dado um specharness.yaml cujo default falha e que declara um fallback
+    Quando o usuário executa "specharness llm test"
+    Então a chamada tenta o fallback e o relatório mostra o modelo de fallback
+
+  Cenário: falha em runtime deixa o semântico explicitamente pendente
+    Dado que a única via de LLM falha durante uma avaliação já em andamento
+    Quando o gate processa a spec
+    Então as funções determinísticas seguem e a camada semântica fica explicitamente pendente, nunca silenciosamente pulada
 ```
