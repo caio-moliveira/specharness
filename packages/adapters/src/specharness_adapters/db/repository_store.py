@@ -22,6 +22,25 @@ class RepositoryStore:
     def __init__(self, target: DatabaseTarget) -> None:
         self._target = target
 
+    def all_commits(self) -> list[Commit]:
+        """Read every ingested commit back as a core `Commit` (SPEC-009 linking)."""
+        engine = create_engine(self._target.sync_url, future=True)
+        try:
+            with Session(engine) as session:
+                rows = session.scalars(select(CommitRow).order_by(CommitRow.authored_at.desc()))
+                return [
+                    Commit(
+                        sha=row.sha,
+                        author=row.author,
+                        authored_at=row.authored_at,
+                        message=row.message,
+                        spec_trailers=tuple(row.spec_trailers),
+                    )
+                    for row in rows
+                ]
+        finally:
+            engine.dispose()
+
     def sync(
         self, repo: str, commits: list[Commit], pull_requests: list[PullRequest]
     ) -> SyncResult:

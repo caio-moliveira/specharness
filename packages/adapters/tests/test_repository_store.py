@@ -123,6 +123,18 @@ def test_duplicate_shas_within_one_batch_insert_once(store_and_target):
     assert result.total_commits == 1
 
 
+def test_all_commits_reads_back_what_was_ingested(store_and_target):
+    store, _ = store_and_target
+    store.sync("acme/tool", [_commit("a", ("SPEC-006",)), _commit("b")], [])
+
+    commits = store.all_commits()
+
+    by_sha = {c.sha: c for c in commits}
+    assert set(by_sha) == {"a", "b"}
+    assert by_sha["a"].spec_trailers == ("SPEC-006",)
+    assert by_sha["b"].spec_trailers == ()
+
+
 def test_syncing_five_thousand_commits_stays_under_the_budget(store_and_target):
     """Métrica 1: medida com perf_counter, não afirmada (lado da persistência)."""
     store, _ = store_and_target
