@@ -102,3 +102,23 @@ def test_real_git_reads_commits_and_agrees_with_the_pure_trailer_parser(tmp_path
     trailers = [c.spec_trailers for c in commits]
     assert ("SPEC-006",) in trailers  # o commit com trailer foi extraído
     assert () in trailers  # o sem trailer não inventou nada
+
+
+def test_git_output_is_decoded_as_utf8(monkeypatch, tmp_path):
+    # Regressão (Windows): sem encoding explícito, o default cp1252 quebra ao ler
+    # bytes UTF-8 do git e o stdout vira None. Fixamos utf-8 + errors=replace.
+    captured: dict = {}
+
+    class _Proc:
+        stdout = ""
+
+    def fake_run(*args, **kwargs):
+        captured.update(kwargs)
+        return _Proc()
+
+    monkeypatch.setattr("specharness_adapters.git.local.subprocess.run", fake_run)
+
+    list(LocalGitCommitReader(tmp_path).commits())
+
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"

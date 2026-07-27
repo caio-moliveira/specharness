@@ -221,6 +221,8 @@ def run_suite() -> bool:
         cwd=REPO,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return proc.returncode == 0
 

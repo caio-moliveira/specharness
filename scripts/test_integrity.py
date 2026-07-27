@@ -31,7 +31,9 @@ REASON_RE = re.compile(r"reason\s*=")
 
 
 def git(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True)
+    return subprocess.run(
+        ["git", *args], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
 
 
 def main() -> int:

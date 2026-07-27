@@ -45,6 +45,10 @@ def _run_git(path: Path, args: list[str]) -> str:
             capture_output=True,
             text=True,
             check=True,
+            # Decodifica como UTF-8 (o que o git emite); sem isto, o Windows usa
+            # cp1252 e o blame/log com bytes não-cp1252 quebra com stdout=None.
+            encoding="utf-8",
+            errors="replace",
         )
     except FileNotFoundError as exc:
         raise RepositoryError.for_repo(str(path), "git não encontrado no PATH") from exc
