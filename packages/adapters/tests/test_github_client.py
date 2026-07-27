@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from specharness_adapters.github import GitHubClient
 from specharness_core.ports.repository import (
@@ -133,6 +134,31 @@ def test_error_message_never_contains_the_token():
 
 
 # --- o fetch httpx real monta o header bearer (métrica 3) ------------------
+
+
+def test_a_network_failure_becomes_a_repository_error(monkeypatch):
+    from specharness_core.ports.repository import RepositoryError
+
+    class BoomClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def get(self, url, headers, params):
+            raise httpx.ConnectError("sem rota para o host")
+
+    monkeypatch.setattr("specharness_adapters.github.client.httpx.Client", BoomClient)
+
+    with pytest.raises(RepositoryError) as excinfo:
+        list(GitHubClient(REF, "ghp_secret").pull_requests())
+
+    assert "ghp_secret" not in str(excinfo.value)
+    assert "rede" in str(excinfo.value).lower()
 
 
 def test_httpx_fetch_sends_a_bearer_token(monkeypatch):

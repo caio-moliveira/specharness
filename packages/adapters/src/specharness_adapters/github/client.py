@@ -16,6 +16,7 @@ from specharness_core.ports.repository import (
     GITHUB_API_ROOT,
     PullRequest,
     RepoRef,
+    RepositoryError,
 )
 
 from .errors import classify
@@ -53,8 +54,15 @@ class GitHubClient:
         }
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
-        with httpx.Client(timeout=DEFAULT_TIMEOUT_S) as client:
-            return client.get(f"{self._api_root}{path}", headers=headers, params=params)
+        try:
+            with httpx.Client(timeout=DEFAULT_TIMEOUT_S) as client:
+                return client.get(f"{self._api_root}{path}", headers=headers, params=params)
+        except httpx.HTTPError as exc:
+            # A network failure must read as a message, not a traceback. The token
+            # lives in a header, never in the URL, so the class name is safe.
+            raise RepositoryError.for_repo(
+                self._ref.slug, f"falha de rede ao acessar o GitHub ({type(exc).__name__})"
+            ) from exc
 
     def pull_requests(self) -> Iterator[PullRequest]:
         base = f"/repos/{self._ref.slug}/pulls"
