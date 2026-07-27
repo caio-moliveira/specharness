@@ -100,3 +100,39 @@ def load_tracker(text: str) -> TrackerConfig:
         return TrackerConfig.model_validate(section)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
+
+
+class ReadinessConfig(BaseModel):
+    """Readiness Gate LLM layer settings (SPEC-011).
+
+    `threshold` is the score below which the LLM layer blocks approved -> ready
+    (rubric default: < 70 não-ready). Configurable because teams calibrate their
+    own bar. No secret here — the model routing lives in the `llm:` section.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    threshold: int = 70
+
+
+def load_readiness(text: str) -> ReadinessConfig:
+    """Parse the readiness section of `specharness.yaml`, or return the default.
+
+    Mirrors `load_tracker`: the config lives under a `readiness:` key; its
+    absence means "use defaults", not an error.
+    """
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"{CONFIG_FILENAME} inválido: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{CONFIG_FILENAME} deve ser um mapa YAML")
+    section = raw.get("readiness")
+    if section is None:
+        return ReadinessConfig()
+    if not isinstance(section, dict):
+        raise ConfigError("a seção 'readiness' de specharness.yaml deve ser um mapa YAML")
+    try:
+        return ReadinessConfig.model_validate(section)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc

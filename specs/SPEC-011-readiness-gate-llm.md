@@ -1,7 +1,7 @@
 ---
 spec: SPEC-011
 title: "Readiness Gate: camada LLM (score, issues acionáveis e override auditado)"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
@@ -26,6 +26,23 @@ acceptance:
 A camada que justifica o ADR-006: testabilidade, ambiguidade e contradição são
 julgamentos semânticos. Score informa, humano decide (override auditado). O
 golden dataset em evals/readiness_gate/ é o gate do próprio gate.
+
+Decisões (fechadas no readiness):
+
+- O **schema** da avaliação (score 0-100 + issues categorizadas em testabilidade,
+  ambiguidade, contradição, completude) e a decisão de limiar são **core puro**;
+  o **prompt** e a chamada litellm ficam no adapter (`llm/gate.py`), como o
+  `_PING_PROMPT`. Uma saída fora do schema é reprocessada por **retry** (métrica
+  2), nunca parseada como texto livre.
+- **Limiar** configurável em `specharness.yaml` (`readiness.threshold`, default
+  70, da rubric). **Cache** por hash do conteúdo + versão do prompt (tabela
+  `readiness_cache`); **override** auditado (autor/data/justificativa) em
+  `readiness_overrides` (append-only) — migração 0004.
+- **A4 (golden verde no CI)** é uma regra de **processo**, não um cenário de
+  runtime: o workflow `evals.yaml` dispara em mudanças de `evals/**` ou do
+  prompt e roda o runner. Modelos de API rodam no CI (secrets); locais (qwen3:8b)
+  rodam no dev — modelo inalcançável é pulado com honestidade (verde por não ter
+  chamado, nunca por fingir), como o teste real da SPEC-005.
 
 ## Cenários (BDD)
 

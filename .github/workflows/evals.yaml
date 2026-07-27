@@ -1,0 +1,23 @@
+name: Evals
+# SPEC-011, critério 4: mudança no prompt do gate ou no dataset exige o golden
+# verde. Roda quando o prompt (gate.py), o runner ou os goldens mudam. Modelos de
+# API rodam com secrets no CI; sem eles o runner pula honestamente (verde por não
+# ter chamado, nunca por fingir) — os modelos locais (qwen3:8b) rodam no dev.
+on:
+  pull_request:
+    paths:
+      - "evals/**"
+      - "packages/adapters/src/specharness_adapters/llm/gate.py"
+
+jobs:
+  goldens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync
+      - run: uv run python -m evals.runner
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
