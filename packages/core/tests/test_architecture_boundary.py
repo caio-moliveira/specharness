@@ -28,6 +28,7 @@ FORBIDDEN_ROOTS = frozenset(
         "typer",
         "httpx",
         "requests",
+        "litellm",
     }
 )
 
