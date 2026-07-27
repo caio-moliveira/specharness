@@ -214,7 +214,11 @@ def _target_from_url(url: str) -> DatabaseTarget:
         )
 
     if base in _SQLITE_SCHEMES:
-        location = parts.path.lstrip("/")
+        # One leading slash is the authority separator; a second one is part of
+        # an absolute path. `lstrip("/")` would eat both and collapse
+        # `sqlite:////abs/x.db` into the relative `abs/x.db` (SQLAlchemy's own
+        # convention: three slashes = relative, four = absolute).
+        location = parts.path[1:] if parts.path.startswith("/") else parts.path
         if not location:
             raise InvalidDatabaseUrl.because("falta o caminho do arquivo SQLite")
         return _sqlite_target(PurePath(location), is_default=False)

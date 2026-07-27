@@ -261,6 +261,22 @@ def test_explicit_sqlite_url_is_accepted_but_is_not_the_default_path():
     assert target.sqlite_path.as_posix() == "dados/meu.db"
 
 
+def test_explicit_absolute_sqlite_url_keeps_its_leading_slash():
+    """`sqlite:////abs/x.db` (four slashes) is absolute, not relative.
+
+    Regressão: `lstrip("/")` colapsava as duas barras e o banco nascia relativo
+    ao cwd, não no caminho absoluto pedido.
+    """
+    target = resolve_database_target(
+        {DATABASE_URL_ENV: "sqlite:////srv/dados/meu.db"}, project_root=PROJECT_ROOT
+    )
+
+    assert target.dialect == "sqlite"
+    assert target.sqlite_path is not None
+    assert target.sqlite_path.as_posix() == "/srv/dados/meu.db"
+    assert target.sync_url == "sqlite:////srv/dados/meu.db"
+
+
 def test_sqlite_url_without_a_path_is_rejected():
     with pytest.raises(InvalidDatabaseUrl):
         resolve_database_target({DATABASE_URL_ENV: "sqlite://"}, project_root=PROJECT_ROOT)
