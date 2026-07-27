@@ -1,0 +1,424 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "specharness",
+    "description": "Decision, quality and metrics layer for spec-driven development.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/big-picture": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Big Picture",
+        "description": "Big picture: fase, specs por status, m\u00e9tricas da sprint e higiene (SPEC-016).",
+        "operationId": "get_big_picture_api_big_picture_get",
+        "parameters": [
+          {
+            "name": "sprint",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sprint"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BigPicture"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/{spec_id}/pipeline": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Spec Pipeline",
+        "description": "Pipeline por spec: readiness \u2192 commits \u2192 BDD \u2192 review \u2192 percep\u00e7\u00e3o (SPEC-016).",
+        "operationId": "get_spec_pipeline_api_specs__spec_id__pipeline_get",
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spec Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecPipeline"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BigPicture": {
+        "properties": {
+          "phase": {
+            "type": "string",
+            "title": "Phase"
+          },
+          "sprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sprint"
+          },
+          "specs_by_status": {
+            "items": {
+              "$ref": "#/components/schemas/SpecStatusCount"
+            },
+            "type": "array",
+            "title": "Specs By Status"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/SprintMetricRow"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "hygiene": {
+            "$ref": "#/components/schemas/Hygiene"
+          },
+          "perception": {
+            "$ref": "#/components/schemas/PerceptionSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phase",
+          "sprint",
+          "specs_by_status",
+          "metrics",
+          "hygiene",
+          "perception"
+        ],
+        "title": "BigPicture"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Hygiene": {
+        "properties": {
+          "orphan_commits": {
+            "type": "integer",
+            "title": "Orphan Commits"
+          },
+          "orphan_specs": {
+            "type": "integer",
+            "title": "Orphan Specs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "orphan_commits",
+          "orphan_specs"
+        ],
+        "title": "Hygiene"
+      },
+      "PerceptionSummary": {
+        "properties": {
+          "n_samples": {
+            "type": "integer",
+            "title": "N Samples"
+          },
+          "n_skipped": {
+            "type": "integer",
+            "title": "N Skipped"
+          },
+          "aproveitamento_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aproveitamento Mean"
+          },
+          "perception_gap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Perception Gap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_samples",
+          "n_skipped",
+          "aproveitamento_mean",
+          "perception_gap"
+        ],
+        "title": "PerceptionSummary"
+      },
+      "PipelineStage": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "status",
+          "detail"
+        ],
+        "title": "PipelineStage"
+      },
+      "SpecPipeline": {
+        "properties": {
+          "spec_id": {
+            "type": "string",
+            "title": "Spec Id"
+          },
+          "sprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sprint"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineStage"
+            },
+            "type": "array",
+            "title": "Stages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spec_id",
+          "sprint",
+          "stages"
+        ],
+        "title": "SpecPipeline"
+      },
+      "SpecStatusCount": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "count"
+        ],
+        "title": "SpecStatusCount"
+      },
+      "SprintMetricRow": {
+        "properties": {
+          "spec_id": {
+            "type": "string",
+            "title": "Spec Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "first_run_pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Run Pass Rate"
+          },
+          "cycle_time_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle Time Seconds"
+          },
+          "turnover_30d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover 30D"
+          },
+          "commits": {
+            "type": "integer",
+            "title": "Commits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spec_id",
+          "status",
+          "first_run_pass_rate",
+          "cycle_time_seconds",
+          "turnover_30d",
+          "commits"
+        ],
+        "title": "SprintMetricRow"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

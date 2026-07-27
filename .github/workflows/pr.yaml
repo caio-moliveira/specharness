@@ -80,3 +80,5 @@ jobs:
       - run: uv run pytest packages/adapters --cov=specharness_adapters.db.perception_store --cov-fail-under=90
       # Cobertura dos adapters do relatório: docx + narrativa (SPEC-015).
       - run: uv run pytest packages/adapters --cov=specharness_adapters.report --cov-fail-under=90
+      # Cobertura da API do dashboard: assembly + seed + endpoints (SPEC-016).
+      - run: uv run pytest packages/server --cov=specharness_server --cov-fail-under=90

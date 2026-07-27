@@ -1,7 +1,7 @@
 ---
 spec: SPEC-016
 title: "Dashboard web read-only: big picture e visão pipeline por spec"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
@@ -52,4 +52,30 @@ Funcionalidade: dashboard read-only
     Dado o dashboard aberto em inglês
     Quando o usuário seleciona pt-BR
     Então os textos da interface são exibidos em português
+
+  Cenário: dado vem só do cliente gerado do OpenAPI
+    Dado o web app consumindo a API do specharness
+    Quando uma visão carrega qualquer dado
+    Então a chamada usa exclusivamente o cliente TypeScript gerado do OpenAPI e o lint proíbe fetch fora dele
 ```
+
+## Notas de implementação
+
+Escopo fechado no readiness (2026-07-27): **backend rigorosamente testado + frontend
+real (sem CI de JS)**. O repo não tem toolchain nem CI de frontend; a verificação
+automatizada (pytest, subagente) cobre o backend, e o frontend é verificado por build.
+
+- **Backend (`packages/server`, FastAPI).** Endpoints que servem a big picture (fase,
+  specs por status, métricas da sprint corrente da SPEC-013, alertas de higiene/órfãos
+  da SPEC-009) e a pipeline por spec (readiness → commits → BDD → review → percepção).
+  Os modelos Pydantic são o contrato OpenAPI (ADR-014). Testado via FastAPI TestClient.
+- **Seed data.** Um seed popula o banco com dados representativos (specs, snapshot de
+  métricas, percepção, commits) para que todas as visões funcionem sem nenhuma conexão
+  externa (git/tracker/LLM). É o que o contribuidor de frontend usa.
+- **Frontend (`web/`).** Vite + React + TS + Tailwind + shadcn/ui (ADR-013), react-i18next
+  (inglês base + pt-BR), consumindo o cliente TypeScript gerado do OpenAPI com
+  @hey-api/openapi-ts (ADR-014). Números exibidos com chip de proveniência (ADR-017);
+  verde reservado para evidência (brand/README). Verificado por build de produção.
+- **Fronteira.** O server é camada de entrega (como a CLI): compõe core + stores, não
+  contém regra de domínio nova. Todo dado do web vem do cliente gerado — o lint do
+  frontend proíbe `fetch`/`axios` fora dele (acceptance[5]).

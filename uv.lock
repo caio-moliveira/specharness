@@ -2211,6 +2211,7 @@ version = "0.1.0"
 source = { editable = "packages/server" }
 dependencies = [
     { name = "fastapi" },
+    { name = "specharness-adapters" },
     { name = "specharness-core" },
     { name = "uvicorn" },
 ]
@@ -2218,6 +2219,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "specharness-adapters", editable = "packages/adapters" },
     { name = "specharness-core", editable = "packages/core" },
     { name = "uvicorn", specifier = ">=0.32" },
 ]

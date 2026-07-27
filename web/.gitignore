@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+openapi-ts-error-*.log
+*.tsbuildinfo
+# Cliente gerado do OpenAPI no build (ADR-014) — o schema openapi.json é a fonte.
+src/client/
