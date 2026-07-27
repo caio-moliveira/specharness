@@ -8,7 +8,7 @@ created: 2026-07-25
 sprint: 2026-A3
 tracker_refs: []
 depends_on: [SPEC-003, SPEC-009]
-adrs: [ADR-016]
+adrs: [ADR-016, ADR-018]
 success_metrics:
   - "First-run BDD pass registrado por spec em 100% das execuções (a métrica-mãe da camada 2)"
   - "Overhead do verify no CI < 30s além do tempo dos próprios testes"

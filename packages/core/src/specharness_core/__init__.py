@@ -30,6 +30,13 @@ from .specschema import (
     parse_spec,
 )
 from .trailers import extract_spec_trailers, valid_spec_trailers
+from .verify import (
+    ScenarioRun,
+    VerifyReport,
+    allows_done,
+    done_edit_allowed,
+    is_ci,
+)
 
 __all__ = [
     "DEFAULT_THRESHOLD",
@@ -44,8 +51,13 @@ __all__ = [
     "Finding",
     "ReadinessReport",
     "Scenario",
+    "ScenarioRun",
     "Step",
+    "VerifyReport",
+    "allows_done",
+    "done_edit_allowed",
     "evaluate_readiness",
+    "is_ci",
     "parse_feature",
     "Link",
     "LinkingResult",

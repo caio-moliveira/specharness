@@ -17,10 +17,16 @@ sys.path.insert(0, str(REPO_ROOT / "packages" / "core" / "src"))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from specharness_core import SpecParseError, parse_spec  # noqa: E402
+from specharness_core import (  # noqa: E402
+    SpecParseError,
+    SpecStatus,
+    done_edit_allowed,
+    is_ci,
+    parse_spec,
+)
 
 
-def _previous_status(path: Path) -> str | None:
+def _previous_status(path: Path) -> SpecStatus | None:
     """Status da spec em HEAD, ou None se o arquivo é novo / git indisponível."""
     rel = os.path.relpath(path.resolve(), REPO_ROOT)
     proc = subprocess.run(
@@ -29,13 +35,9 @@ def _previous_status(path: Path) -> str | None:
     if proc.returncode != 0:
         return None
     try:
-        return parse_spec(proc.stdout).frontmatter.status.value
+        return parse_spec(proc.stdout).frontmatter.status
     except SpecParseError:
         return None
-
-
-def _in_ci() -> bool:
-    return os.environ.get("CI", "").lower() in {"true", "1"}
 
 
 def main(paths: list[str]) -> int:
@@ -56,10 +58,8 @@ def main(paths: list[str]) -> int:
             failures += 1
             continue
         seen[parsed.spec_id] = str(path)
-        if (
-            parsed.frontmatter.status.value == "done"
-            and not _in_ci()
-            and _previous_status(path) != "done"
+        if not done_edit_allowed(
+            parsed.frontmatter.status, _previous_status(path), in_ci=is_ci(os.environ)
         ):
             print(f"✗ {path}: transição para 'done' é exclusiva do CI (ADR-016)")
             failures += 1
