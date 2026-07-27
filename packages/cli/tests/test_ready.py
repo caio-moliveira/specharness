@@ -7,6 +7,7 @@ import json
 import pytest
 from specharness_cli.main import app
 from specharness_core import Evaluation
+from specharness_core.ports.llm import LLMError
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -226,6 +227,36 @@ def test_override_ends_with_a_verdict(monkeypatch):
     assert result.exit_code == 0, result.output
     assert "Veredito: PRONTA" in result.output
     assert "override" in result.output.lower()
+
+
+def _fake_llm_error(monkeypatch):
+    def fake(text, client):
+        raise LLMError("provedor caiu no meio da avaliação")
+
+    monkeypatch.setattr("specharness_cli.main.evaluate_spec", fake)
+
+
+def test_an_llm_error_ends_with_a_blocked_verdict(monkeypatch, with_provider):
+    _fake_llm_error(monkeypatch)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert "provedor caiu" in result.output
+    assert "Veredito: BLOQUEADA" in result.output
+    assert "erro na camada LLM" in result.output
+
+
+def test_ready_json_reports_an_llm_error(monkeypatch, with_provider):
+    _fake_llm_error(monkeypatch)
+
+    result = runner.invoke(app, ["ready", "SPEC-042", "--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "blocked"
+    assert payload["reason"] == "erro na camada LLM"
+    assert payload["llm"] is None
 
 
 def test_ready_json_emits_the_verdict(monkeypatch, with_provider):
