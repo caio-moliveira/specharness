@@ -23,3 +23,4 @@ registre um novo que o substitua (skill `registrar-adr`).
 | [ADR-016](ADR-016-separacao-implementacao-verificacao.md) | Quem implementa não arbitra: separação implementação/verificação | aceita |
 | [ADR-017](ADR-017-identidade-visual.md) | Identidade visual "Gate & Evidence" | aceita |
 | [ADR-018](ADR-018-runner-bdd-interno.md) | Runner de BDD interno mínimo, não pytest-bdd, para o verify | aceita |
+| [ADR-019](ADR-019-modo-demo-dashboard.md) | Modo demo do dashboard: banco dedicado, rótulo DEMO e origem declarada | aceita |
