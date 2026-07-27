@@ -45,6 +45,10 @@ class LocalGitCommitReader:
                 capture_output=True,
                 text=True,
                 check=True,
+                # git emits UTF-8; decode it explicitly so a commit message with
+                # acentos/emoji não quebra no Windows (default cp1252). ADR-011.
+                encoding="utf-8",
+                errors="replace",
             )
         except FileNotFoundError as exc:
             raise RepositoryError.for_repo(str(self._path), "git não encontrado no PATH") from exc

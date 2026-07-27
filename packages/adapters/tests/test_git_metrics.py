@@ -260,3 +260,22 @@ def test_missing_git_binary_raises_repository_error(monkeypatch, tmp_path):
             window_days=30, as_of=datetime(2026, 7, 20, tzinfo=UTC)
         )
     assert "git" in str(excinfo.value).lower()
+
+
+def test_git_metrics_decode_output_as_utf8(monkeypatch, tmp_path):
+    # Mesma regressão de Windows no reader de turnover/blame (cp1252 → stdout None).
+    captured: dict = {}
+
+    class _Proc:
+        stdout = ""
+
+    def fake_run(*args, **kwargs):
+        captured.update(kwargs)
+        return _Proc()
+
+    monkeypatch.setattr("specharness_adapters.metrics.git_metrics.subprocess.run", fake_run)
+
+    TurnoverReader(tmp_path).repo_baseline(window_days=30, as_of=datetime(2026, 7, 20, tzinfo=UTC))
+
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "replace"
