@@ -58,6 +58,9 @@ cov-perception:
 cov-report:
     uv run pytest packages/adapters --cov=specharness_adapters.report --cov-report=term-missing --cov-fail-under=90
 
+cov-server:
+    uv run pytest packages/server --cov=specharness_server --cov-report=term-missing --cov-fail-under=90
+
 # Mutation score do parser: cobertura diz que o teste rodou, isto diz que ele prova
 mutants threshold="90":
     uv run python scripts/mutants.py --threshold {{threshold}}
