@@ -1,7 +1,7 @@
 ---
 spec: SPEC-006
 title: "Conexão de repositório GitHub: commits, trailers e PRs"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
@@ -35,7 +35,12 @@ Funcionalidade: conexão de repositório GitHub
   Cenário: sync inicial ingere commits com trailers
     Dado um repositório GitHub conectado com token válido
     Quando o sync inicial é executado
-    Então todos os commits ficam disponíveis com seus trailers "Spec:" extraídos
+    Então cada commit fica disponível com hash, autor, data, mensagem e os trailers "Spec:" extraídos
+
+  Cenário: sync ingere pull requests vinculados aos commits
+    Dado um repositório conectado com token válido e pull requests abertos
+    Quando o sync inicial é executado
+    Então cada PR fica disponível com estado, branch e o vínculo aos seus commits
 
   Cenário: reprocessamento não duplica dados
     Dado um repositório já sincronizado

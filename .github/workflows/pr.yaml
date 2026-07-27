@@ -64,3 +64,5 @@ jobs:
       - run: uv run pytest packages/adapters --cov=specharness_adapters.db --cov-fail-under=90
       # Cobertura do adapter de LLM (SPEC-005). No CI pela mesma razão.
       - run: uv run pytest packages/adapters --cov=specharness_adapters.llm --cov-fail-under=90
+      # Cobertura dos adapters de repositório: git + GitHub (SPEC-006).
+      - run: uv run pytest packages/adapters --cov=specharness_adapters.git --cov=specharness_adapters.github --cov=specharness_adapters.db.repository_store --cov-fail-under=90

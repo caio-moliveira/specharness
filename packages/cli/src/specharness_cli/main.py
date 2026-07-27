@@ -8,12 +8,19 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
-from specharness_adapters.db import gateway_from_env
+from specharness_adapters.db import RepositoryStore, gateway_from_env
+from specharness_adapters.git import LocalGitCommitReader
+from specharness_adapters.github import GitHubClient
 from specharness_adapters.llm import check_connection, detect_providers
 from specharness_core import __version__
 from specharness_core.config import CONFIG_FILENAME, ConfigError, RoutingConfig, load_routing
 from specharness_core.ports.database import DatabaseError
 from specharness_core.ports.llm import LLMError, onboarding_status
+from specharness_core.ports.repository import (
+    GITHUB_TOKEN_ENV,
+    AuthenticationFailed,
+    RepositoryError,
+)
 
 app = typer.Typer(
     name="specharness",
@@ -56,7 +63,7 @@ def status() -> None:
     rows = [
         ("specharness connect db", "SPEC-004", "disponível"),
         ("specharness llm test", "SPEC-005", "disponível"),
-        ("specharness connect repo", "SPEC-006", "planejado"),
+        ("specharness connect repo", "SPEC-006", "disponível"),
         ("specharness track", "SPEC-009", "planejado"),
         ("specharness ready <spec>", "SPEC-010/011", "planejado"),
         ("specharness verify", "SPEC-012", "planejado"),
@@ -105,6 +112,48 @@ def _describe(gateway) -> str:
     except ValueError:
         shown = path.as_posix()
     return f"SQLite em {shown}"
+
+
+@connect_app.command("repo")
+def connect_repo() -> None:
+    """Ingere commits (com trailers) e pull requests do repositório GitHub (SPEC-006).
+
+    Lê o histórico do git local (ADR-011) e complementa com os PRs da API do
+    GitHub. Precisa de GITHUB_TOKEN com escopo mínimo de leitura de Contents e
+    Pull requests. O reprocessamento é idempotente: rodar de novo sem novidades
+    não cria registros.
+    """
+    reader = LocalGitCommitReader(Path.cwd())
+    try:
+        ref = reader.remote_ref()
+    except RepositoryError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    if not os.environ.get(GITHUB_TOKEN_ENV, "").strip():
+        exc = AuthenticationFailed.for_repo(ref.slug, detail=f"{GITHUB_TOKEN_ENV} não definida")
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    token = os.environ[GITHUB_TOKEN_ENV].strip()
+
+    try:
+        commits = list(reader.commits())
+        pull_requests = list(GitHubClient(ref, token).pull_requests())
+        gateway = gateway_from_env()
+        gateway.migrate()
+        result = RepositoryStore(gateway.target).sync(ref.slug, commits, pull_requests)
+    except (RepositoryError, DatabaseError) as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    console.print(f"✓ Repositório conectado — {ref.slug}", markup=False, soft_wrap=True)
+    console.print(
+        f"  {result.total_commits} commits ({result.new_commits} novos) · "
+        f"{result.total_pull_requests} PRs ({result.new_pull_requests} novos).",
+        markup=False,
+    )
+    if result.was_noop:
+        console.print("  Nada novo desde o último sync.", markup=False)
 
 
 @llm_app.command("test")
