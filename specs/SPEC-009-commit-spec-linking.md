@@ -1,7 +1,7 @@
 ---
 spec: SPEC-009
 title: "track: linking commit->spec via trailer e detecção de órfãos"
-status: ready
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-25
