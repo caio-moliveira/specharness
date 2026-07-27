@@ -1,7 +1,7 @@
 ---
 spec: SPEC-007
 title: "Adapter Redmine: import e sincronização de WorkItems"
-status: approved
+status: ready
 type: feature
 owner: caio
 created: 2026-07-25
@@ -26,6 +26,22 @@ Primeiro adapter de tracker (junto ao GitHub Issues) — e o mais relevante para
 o caso brownfield de setor público. Traduz a taxonomia do Redmine para o
 modelo canônico WorkItem (ADR-007); o core nunca vê tipos do Redmine.
 
+Decisões de modelagem (fechadas no readiness):
+
+- **Versions** viram WorkItems próprios (`kind: version`); além disso, a
+  `fixed_version` de cada issue preenche o campo `sprint` do WorkItem dela.
+  Assim "issues e versions são importadas" (A1) e as issues ganham sprint.
+- **Estado**: o `state` do WorkItem carrega o nome do status nativo do Redmine
+  (fidelidade — métrica 2, sem inventar vocabulário). A canonicidade é
+  estrutural (um único tipo WorkItem), não um enum fixo de estados.
+- **Mapa de status** para o write-back é **configurável** em `specharness.yaml`
+  (`tracker.status_map`: status da spec → nome do status no Redmine), porque o
+  workflow do Redmine é por instância. Nenhum segredo no arquivo; a API key vem
+  só do ambiente (`REDMINE_API_KEY`).
+- **Escopo do write-back**: esta spec entrega a *capacidade* de escrita
+  (`update_status`); o *gatilho* de ciclo de vida (detectar a spec virando
+  `done`) é da orquestração de linking (SPEC-009).
+
 ## Cenários (BDD)
 
 ```gherkin
@@ -35,7 +51,7 @@ Funcionalidade: import e sync de WorkItems do Redmine
   Cenário: import inicial brownfield
     Dado um Redmine conectado com projeto contendo issues e versions
     Quando o import inicial é executado
-    Então cada issue vira um WorkItem canônico com referência externa estável
+    Então cada issue e cada version viram WorkItems canônicos com referência externa estável
 
   Cenário: status flui do specharness para o Redmine
     Dado uma spec vinculada a uma issue do Redmine
