@@ -25,13 +25,17 @@ class TrackerError(Exception):
     template = "Falha ao acessar o tracker {tracker}."
 
     @classmethod
-    def for_tracker(cls, tracker: str, detail: str = "") -> TrackerError:
-        message = cls.template.format(tracker=tracker, key_env=REDMINE_API_KEY_ENV)
+    def for_tracker(
+        cls, tracker: str, detail: str = "", key_env: str = REDMINE_API_KEY_ENV
+    ) -> TrackerError:
+        # key_env defaults to Redmine's, but a GitHub Issues tracker (SPEC-008)
+        # passes GITHUB_TOKEN so the auth guidance names the right variable.
+        message = cls.template.format(tracker=tracker, key_env=key_env)
         return cls(f"{message} ({detail})" if detail else message)
 
 
 class TrackerAuthenticationFailed(TrackerError):
-    template = "Falha de autenticação no tracker {tracker}. Verifique a API key em {key_env}."
+    template = "Falha de autenticação no tracker {tracker}. Verifique a credencial em {key_env}."
 
 
 class TrackerRateLimited(TrackerError):
