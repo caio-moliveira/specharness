@@ -1,7 +1,7 @@
 ---
 spec: SPEC-013
 title: "Métricas objetivas da camada 2: first-run, cycle time, churn e turnover 30/90d"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
