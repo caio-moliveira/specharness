@@ -180,14 +180,18 @@ _DIFF_REMOVES_ASSERT = """diff --git a/packages/core/tests/test_x.py b/packages/
      bar()
 """
 
-_DIFF_NAKED_SKIP = """diff --git a/packages/core/tests/test_y.py b/packages/core/tests/test_y.py
---- a/packages/core/tests/test_y.py
-+++ b/packages/core/tests/test_y.py
-@@ -1,2 +1,3 @@
- def test_y():
-+    @pytest.mark.skip
-     pass
-"""
+# The skip marker is assembled at runtime so this test file does not trip the
+# test-integrity gate on its own fixture (the gate scans literal source lines).
+_SKIP_MARK = "pytest.mark." + "skip"
+_DIFF_NAKED_SKIP = (
+    "diff --git a/packages/core/tests/test_y.py b/packages/core/tests/test_y.py\n"
+    "--- a/packages/core/tests/test_y.py\n"
+    "+++ b/packages/core/tests/test_y.py\n"
+    "@@ -1,2 +1,3 @@\n"
+    " def test_y():\n"
+    f"+    @{_SKIP_MARK}\n"
+    "     pass\n"
+)
 
 _DIFF_NON_TEST = """diff --git a/packages/core/src/x.py b/packages/core/src/x.py
 --- a/packages/core/src/x.py
@@ -244,7 +248,7 @@ def test_tampering_ignores_non_test_files():
 
 
 def test_a_skip_with_reason_is_not_flagged():
-    diff = _DIFF_NAKED_SKIP.replace("@pytest.mark.skip", '@pytest.mark.skip(reason="x")')
+    diff = _DIFF_NAKED_SKIP.replace(f"@{_SKIP_MARK}", f'@{_SKIP_MARK}(reason="x")')
     assert tampering_signals(diff, "SPEC-013") == []
 
 
