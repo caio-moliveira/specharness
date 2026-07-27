@@ -14,7 +14,13 @@ from specharness_adapters.github import GitHubClient
 from specharness_adapters.github_issues import GitHubIssuesClient
 from specharness_adapters.llm import check_connection, detect_providers
 from specharness_adapters.redmine import RedmineClient
-from specharness_core import __version__
+from specharness_core import (
+    SpecInfo,
+    SpecParseError,
+    __version__,
+    link_commits,
+    parse_spec,
+)
 from specharness_core.config import (
     CONFIG_FILENAME,
     ConfigError,
@@ -81,7 +87,7 @@ def status() -> None:
         ("specharness connect repo", "SPEC-006", "disponível"),
         ("specharness connect tracker", "SPEC-007", "disponível"),
         ("specharness connect issues", "SPEC-008", "disponível"),
-        ("specharness track", "SPEC-009", "planejado"),
+        ("specharness track", "SPEC-009", "disponível"),
         ("specharness ready <spec>", "SPEC-010/011", "planejado"),
         ("specharness verify", "SPEC-012", "planejado"),
         ("specharness report", "SPEC-015", "planejado"),
@@ -89,6 +95,70 @@ def status() -> None:
     for row in rows:
         table.add_row(*row)
     console.print(table)
+
+
+@app.command()
+def track() -> None:
+    """Vincula commits a specs pelo trailer e reporta órfãos (SPEC-009).
+
+    Lê os commits já ingeridos (SPEC-006) e o registro de specs do disco, e
+    calcula a visão pipeline (vínculos válidos) e o relatório de higiene
+    (vínculos inválidos, commits órfãos, specs órfãs) a cada execução.
+    """
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+        commits = RepositoryStore(gateway.target).all_commits()
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    result = link_commits(commits, _load_spec_infos())
+    _render_track(result)
+
+
+def _load_spec_infos() -> list[SpecInfo]:
+    """The spec registry, from specs/*.md on disk (SPEC-003)."""
+    infos: list[SpecInfo] = []
+    for path in sorted((Path.cwd() / "specs").glob("*.md")):
+        try:
+            parsed = parse_spec(path.read_text(encoding="utf-8"))
+        except SpecParseError:
+            continue  # um arquivo inválido é problema do hook de schema, não do track
+        infos.append(
+            SpecInfo(
+                spec_id=parsed.spec_id,
+                status=str(parsed.frontmatter.status),
+                sprint=parsed.frontmatter.sprint,
+            )
+        )
+    return infos
+
+
+def _render_track(result) -> None:
+    table = Table(title="Pipeline commit → spec")
+    table.add_column("Commit")
+    table.add_column("Spec")
+    for link in result.valid_links:
+        table.add_row(link.commit_sha[:10], link.spec_id)
+    console.print(table)
+
+    console.print(
+        f"Higiene: {len(result.valid_links)} vínculos válidos · "
+        f"{len(result.invalid_links)} inválidos · "
+        f"{len(result.orphan_commits)} commits órfãos · "
+        f"{len(result.orphan_specs)} specs órfãs.",
+        markup=False,
+    )
+    for link in result.invalid_links:
+        console.print(
+            f"  ⚠ vínculo inválido: {link.commit_sha[:10]} → {link.spec_id} (spec inexistente)",
+            markup=False,
+        )
+    for spec_id in result.orphan_specs:
+        console.print(f"  ⚠ spec órfã (in_progress sem commit): {spec_id}", markup=False)
+    if result.is_clean:
+        console.print("✓ Pipeline limpa.", markup=False)
 
 
 @connect_app.command("db")
