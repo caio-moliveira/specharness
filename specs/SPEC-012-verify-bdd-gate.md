@@ -1,14 +1,14 @@
 ---
 spec: SPEC-012
 title: "verify: cenários BDD como gate de done no CI"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
 sprint: 2026-A3
 tracker_refs: []
 depends_on: [SPEC-003, SPEC-009]
-adrs: [ADR-016]
+adrs: [ADR-016, ADR-018]
 success_metrics:
   - "First-run BDD pass registrado por spec em 100% das execuções (a métrica-mãe da camada 2)"
   - "Overhead do verify no CI < 30s além do tempo dos próprios testes"
@@ -65,4 +65,19 @@ Funcionalidade: BDD como gate de conclusão
     Dado uma spec com cenário sem step definition correspondente
     Quando o verify executa
     Então o cenário é reportado como pendente com orientação de implementação
+
+  Cenário: modo CI emite exit code e resumo legível por máquina
+    Dado uma execução do verify em modo CI
+    Quando o verify termina
+    Então a saída é um resumo JSON legível por máquina e o exit code reflete o veredito
 ```
+
+## Notas de implementação
+
+O runner de BDD é interno e mínimo (ADR-018, emenda o ADR-012): um step registry
+sobre o parser puro de Gherkin — step sem definição → pendente (distinto de
+falha), step que levanta → falhou, todos passam → passou. O *veredito* (todos
+verdes libera done) é core puro; o *runner* (importa/executa step definitions do
+repo) é adapter. A rejeição de `done` fora do CI (A6) é do hook de schema, que
+delega à decisão pura `done_edit_allowed` do core. Execuções locais são
+informativas (não persistem); só o primeiro run no CI marca first-run.

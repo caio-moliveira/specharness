@@ -45,6 +45,10 @@ cov-issues:
 cov-readiness:
     uv run pytest packages/adapters --cov=specharness_adapters.llm.gate --cov=specharness_adapters.db.readiness_store --cov-report=term-missing --cov-fail-under=90
 
+# Cobertura do runner de BDD + store de scenario runs (SPEC-012 — ADR-016/018)
+cov-verify:
+    uv run pytest packages/adapters --cov=specharness_adapters.verify --cov=specharness_adapters.db.scenario_run_store --cov-report=term-missing --cov-fail-under=90
+
 # Mutation score do parser: cobertura diz que o teste rodou, isto diz que ele prova
 mutants threshold="90":
     uv run python scripts/mutants.py --threshold {{threshold}}

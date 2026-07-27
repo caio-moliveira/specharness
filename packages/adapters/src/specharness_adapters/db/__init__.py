@@ -13,11 +13,13 @@ from .models import (
     PullRequestRow,
     ReadinessCacheRow,
     ReadinessOverrideRow,
+    ScenarioRunRow,
     SchemaMeta,
     WorkItemRow,
 )
 from .readiness_store import OverrideStore, ReadinessCacheStore
 from .repository_store import RepositoryStore
+from .scenario_run_store import ScenarioRunStore
 from .workitem_store import WorkItemStore
 
 __all__ = [
@@ -30,6 +32,8 @@ __all__ = [
     "ReadinessCacheStore",
     "ReadinessOverrideRow",
     "RepositoryStore",
+    "ScenarioRunRow",
+    "ScenarioRunStore",
     "SchemaMeta",
     "WorkItemRow",
     "WorkItemStore",
