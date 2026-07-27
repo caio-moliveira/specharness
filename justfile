@@ -52,6 +52,9 @@ cov-verify:
 cov-metrics:
     uv run pytest packages/adapters --cov=specharness_adapters.metrics --cov=specharness_adapters.db.metrics_store --cov-report=term-missing --cov-fail-under=90
 
+cov-perception:
+    uv run pytest packages/adapters --cov=specharness_adapters.db.perception_store --cov-report=term-missing --cov-fail-under=90
+
 # Mutation score do parser: cobertura diz que o teste rodou, isto diz que ele prova
 mutants threshold="90":
     uv run python scripts/mutants.py --threshold {{threshold}}
