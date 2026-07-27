@@ -13,6 +13,7 @@ from rich.table import Table
 from specharness_adapters.db import (
     MetricSnapshotStore,
     OverrideStore,
+    PerceptionStore,
     ReadinessCacheStore,
     RepositoryStore,
     ScenarioRunStore,
@@ -41,6 +42,8 @@ from specharness_adapters.verify import StepRegistry, VerifyError, load_steps, r
 from specharness_core import (
     Evaluation,
     Override,
+    PerceptionError,
+    PerceptionSample,
     ReadinessReport,
     ScenarioRun,
     SpecInfo,
@@ -50,6 +53,7 @@ from specharness_core import (
     SprintSnapshot,
     VerifyReport,
     __version__,
+    aggregate_perception,
     content_hash,
     cycle_time_seconds,
     evaluate_readiness,
@@ -60,6 +64,7 @@ from specharness_core import (
     link_commits,
     parse_spec,
     turnover_ratio,
+    validate_answers,
 )
 from specharness_core.config import (
     CONFIG_FILENAME,
@@ -133,6 +138,7 @@ def status() -> None:
         ("specharness ready <spec>", "SPEC-010/011", "disponível"),
         ("specharness verify", "SPEC-012", "disponível"),
         ("specharness metrics <sprint>", "SPEC-013", "disponível"),
+        ("specharness survey / perception", "SPEC-014", "disponível"),
         ("specharness report", "SPEC-015", "planejado"),
     ]
     for row in rows:
@@ -644,6 +650,191 @@ def _fmt_pct(value: float | None) -> str:
     if value is None:
         return "—"
     return f"{value * 100:.0f}%"
+
+
+@app.command()
+def survey(
+    pr: str = typer.Argument(..., help="ref da PR (ex.: owner/repo#123)"),
+    runtime: str = typer.Option(..., "--runtime", help="runtime da implementação"),
+    model: str = typer.Option(..., "--model", help="modelo usado (ex.: claude-opus)"),
+    spec: str | None = typer.Option(None, "--spec", help="spec; senão derivada do vínculo da PR"),
+    aproveitamento: int | None = typer.Option(None, "--aproveitamento", help="1 a 5"),
+    retrabalho: str | None = typer.Option(None, "--retrabalho", help="nenhum/leve/pesado"),
+    tempo: str | None = typer.Option(None, "--tempo", help="economizou/neutro/custou"),
+    comentario: str | None = typer.Option(None, "--comentario", help="comentário livre opcional"),
+    skip: bool = typer.Option(False, "--skip", help="pular o survey desta PR"),
+    specs_dir: str = typer.Option("specs", "--specs", help="diretório das specs"),
+) -> None:
+    """Registra a percepção do dev no merge de uma PR (SPEC-014).
+
+    Três itens fechados (aproveitamento 1-5, retrabalho, tempo percebido) e um
+    comentário opcional, ancorados à tripla spec × runtime × modelo. O survey é
+    skippável e nunca reaparece na mesma PR. A identidade do respondente não é
+    guardada — só agregados por sprint/time (ADR-008).
+    """
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    store = PerceptionStore(gateway.target)
+
+    if store.has_response(pr):
+        console.print(f"• {pr}: já registrado — sem novo prompt (SPEC-014).", markup=False)
+        return
+
+    spec_id = spec or _derive_spec_for_pr(gateway.target, pr)
+    if spec_id is None:
+        err_console.print(
+            f"✗ {pr}: sem spec vinculada e sem --spec; nada registrado.",
+            markup=False,
+            style="red",
+        )
+        raise typer.Exit(1) from None
+
+    sprint = _sprint_of_spec(Path(specs_dir), spec_id)
+    if sprint is None:
+        err_console.print(
+            f"✗ spec {spec_id} não encontrada em {specs_dir}", markup=False, style="red"
+        )
+        raise typer.Exit(1) from None
+
+    at = datetime.now(UTC)
+    if skip:
+        store.record_skip(pr, spec_id, sprint, runtime, model, at)
+        console.print(f"• {pr}: survey pulado e registrado (sem penalidade).", markup=False)
+        return
+
+    if aproveitamento is None or retrabalho is None or tempo is None:
+        err_console.print(
+            "✗ informe --aproveitamento, --retrabalho e --tempo (ou --skip).",
+            markup=False,
+            style="red",
+        )
+        raise typer.Exit(1) from None
+    try:
+        validate_answers(aproveitamento, retrabalho, tempo)
+    except PerceptionError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    sample = PerceptionSample(
+        pr_ref=pr,
+        spec_id=spec_id,
+        sprint=sprint,
+        runtime=runtime,
+        model=model,
+        aproveitamento=aproveitamento,
+        retrabalho=retrabalho,  # type: ignore[arg-type]
+        tempo_percebido=tempo,  # type: ignore[arg-type]
+        comentario=comentario,
+    )
+    store.record_sample(sample, at)
+    console.print(f"✓ {pr}: percepção registrada para {spec_id} ({runtime}/{model}).", markup=False)
+
+
+@app.command()
+def perception(
+    sprint: str = typer.Argument(..., help="sprint a agregar (ex.: 2026-A4)"),
+    json_out: bool = typer.Option(False, "--json", help="saída legível por máquina (JSON)"),
+) -> None:
+    """Agrega a percepção de uma sprint e cruza com o cycle time real (SPEC-014).
+
+    Só agregados: contagens, distribuições e o gap de percepção (proporção de
+    amostras cuja direção percebida diverge da medida pelo cycle time da SPEC-013).
+    Nenhuma resposta individual é exposta (ADR-008).
+    """
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    store = PerceptionStore(gateway.target)
+    snapshot = MetricSnapshotStore(gateway.target).latest(sprint)
+    cycle_times = (
+        {
+            s.spec_id: s.cycle_time_seconds
+            for s in snapshot.specs
+            if s.cycle_time_seconds is not None
+        }
+        if snapshot is not None
+        else {}
+    )
+    agg = aggregate_perception(
+        sprint,
+        store.samples_for_sprint(sprint),
+        store.skips_for_sprint(sprint),
+        cycle_times,
+    )
+    if json_out:
+        _emit_perception_json(agg)
+    else:
+        _render_perception(agg)
+
+
+def _derive_spec_for_pr(target, pr: str) -> str | None:
+    """The single spec linked to a PR via its commits (SPEC-009); None if 0 or >1."""
+    if "#" not in pr:
+        return None
+    repo, _, number = pr.rpartition("#")
+    if not number.isdigit():
+        return None
+    spec_ids = RepositoryStore(target).spec_ids_for_pr(repo, int(number))
+    return next(iter(spec_ids)) if len(spec_ids) == 1 else None
+
+
+def _sprint_of_spec(specs_dir: Path, spec_id: str) -> str | None:
+    for path in specs_dir.glob(f"{spec_id}*.md"):
+        try:
+            return parse_spec(path.read_text(encoding="utf-8")).frontmatter.sprint
+        except SpecParseError:
+            return None
+    return None
+
+
+def _emit_perception_json(agg) -> None:
+    payload = {
+        "sprint": agg.sprint,
+        "n_samples": agg.n_samples,
+        "n_skipped": agg.n_skipped,
+        "aproveitamento_mean": agg.aproveitamento_mean,
+        "retrabalho_dist": dict(agg.retrabalho_dist),
+        "tempo_dist": dict(agg.tempo_dist),
+        "perception_gap": agg.perception_gap,
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+
+
+def _render_perception(agg) -> None:
+    table = Table(title=f"Percepção — sprint {agg.sprint}")
+    table.add_column("Métrica")
+    table.add_column("Valor")
+    table.add_row("Amostras", str(agg.n_samples))
+    table.add_row("Skips", str(agg.n_skipped))
+    table.add_row("Aproveitamento médio", _fmt_mean(agg.aproveitamento_mean))
+    table.add_row("Tempo percebido", _fmt_dist(agg.tempo_dist))
+    table.add_row("Retrabalho", _fmt_dist(agg.retrabalho_dist))
+    table.add_row(
+        "Gap de percepção",
+        "—" if agg.perception_gap is None else f"{agg.perception_gap * 100:.0f}%",
+    )
+    console.print(table)
+    if agg.perception_gap is None:
+        console.print(
+            "Gap indisponível: compute as métricas da sprint (specharness metrics) primeiro.",
+            markup=False,
+            style="yellow",
+        )
+
+
+def _fmt_mean(value: float | None) -> str:
+    return "—" if value is None else f"{value:.1f}"
+
+
+def _fmt_dist(dist) -> str:
+    return " · ".join(f"{k}:{v}" for k, v in dist.items())
 
 
 @connect_app.command("db")

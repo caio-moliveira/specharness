@@ -11,6 +11,7 @@ from .models import (
     Base,
     CommitRow,
     MetricSnapshotRow,
+    PerceptionSampleRow,
     PullRequestCommitRow,
     PullRequestRow,
     ReadinessCacheRow,
@@ -19,6 +20,7 @@ from .models import (
     SchemaMeta,
     WorkItemRow,
 )
+from .perception_store import PerceptionStore
 from .readiness_store import OverrideStore, ReadinessCacheStore
 from .repository_store import RepositoryStore
 from .scenario_run_store import ScenarioRunStore
@@ -30,6 +32,8 @@ __all__ = [
     "MetricSnapshotRow",
     "MetricSnapshotStore",
     "OverrideStore",
+    "PerceptionSampleRow",
+    "PerceptionStore",
     "PullRequestCommitRow",
     "PullRequestRow",
     "ReadinessCacheRow",

@@ -146,3 +146,16 @@ def test_syncing_five_thousand_commits_stays_under_the_budget(store_and_target):
 
     assert result.new_commits == 5000
     assert elapsed < SYNC_BUDGET_SECONDS, f"sync de 5000 commits levou {elapsed:.2f}s"
+
+
+def test_spec_ids_for_pr_reads_trailers_of_the_prs_commits(store_and_target):
+    store, _ = store_and_target
+    store.sync(
+        "acme/tool",
+        [_commit("a", ("SPEC-042",)), _commit("b", ("SPEC-042", "SPEC-099")), _commit("c")],
+        [_pr(7, ("a", "b")), _pr(8, ("c",))],
+    )
+
+    assert store.spec_ids_for_pr("acme/tool", 7) == {"SPEC-042", "SPEC-099"}
+    assert store.spec_ids_for_pr("acme/tool", 8) == set()  # commit c has no trailer
+    assert store.spec_ids_for_pr("acme/tool", 999) == set()  # unknown PR

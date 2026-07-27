@@ -41,6 +41,31 @@ class RepositoryStore:
         finally:
             engine.dispose()
 
+    def spec_ids_for_pr(self, repo: str, number: int) -> set[str]:
+        """The distinct spec ids linked to a PR via its commits' trailers (SPEC-009).
+
+        This is how the perception survey anchors to a spec without asking the dev
+        to retype it (SPEC-014, acceptance[3]).
+        """
+        engine = create_engine(self._target.sync_url, future=True)
+        try:
+            with Session(engine) as session:
+                rows = session.scalars(
+                    select(CommitRow)
+                    .join(
+                        PullRequestCommitRow,
+                        (PullRequestCommitRow.repo == CommitRow.repo)
+                        & (PullRequestCommitRow.sha == CommitRow.sha),
+                    )
+                    .where(
+                        PullRequestCommitRow.repo == repo,
+                        PullRequestCommitRow.number == number,
+                    )
+                )
+                return {spec for row in rows for spec in row.spec_trailers}
+        finally:
+            engine.dispose()
+
     def sync(
         self, repo: str, commits: list[Commit], pull_requests: list[PullRequest]
     ) -> SyncResult:

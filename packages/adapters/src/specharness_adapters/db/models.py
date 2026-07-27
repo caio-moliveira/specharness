@@ -144,6 +144,30 @@ class MetricSnapshotRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class PerceptionSampleRow(Base):
+    """A perception micro-survey response for a merged PR (SPEC-014, ADR-008).
+
+    Anchored to the triple (spec_id, runtime, model) and the PR — **never** to a
+    respondent, so no query can expose an individual. A declined survey is a row
+    with `skipped=True` and null answers; one row per PR makes the "sem re-prompt
+    no mesmo PR" promise a uniqueness of `pr_ref`.
+    """
+
+    __tablename__ = "perception_samples"
+
+    pr_ref: Mapped[str] = mapped_column(String(255), primary_key=True)
+    spec_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    sprint: Mapped[str] = mapped_column(String(128), nullable=False)
+    runtime: Mapped[str] = mapped_column(String(128), nullable=False)
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    skipped: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    aproveitamento: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retrabalho: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    tempo_percebido: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class WorkItemRow(Base):
     """A canonical WorkItem imported from a tracker (SPEC-007, ADR-007).
 
