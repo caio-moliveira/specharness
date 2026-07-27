@@ -62,3 +62,5 @@ jobs:
       - run: uv run pytest packages/core --cov=specharness_core --cov-fail-under=85
       # Métrica 4 da SPEC-004. No CI para não apodrecer como métrica só-local.
       - run: uv run pytest packages/adapters --cov=specharness_adapters.db --cov-fail-under=90
+      # Cobertura do adapter de LLM (SPEC-005). No CI pela mesma razão.
+      - run: uv run pytest packages/adapters --cov=specharness_adapters.llm --cov-fail-under=90

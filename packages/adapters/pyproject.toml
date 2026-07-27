@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.13",
     "asyncpg>=0.30",
     "httpx>=0.27",
+    "litellm>=1.44",
     "psycopg[binary]>=3.2",
     "specharness-core",
     "sqlalchemy>=2.0",
