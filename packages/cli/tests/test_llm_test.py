@@ -147,6 +147,50 @@ def test_invalid_config_exits_nonzero_with_a_message(monkeypatch, clean_env, oll
     assert "specharness.yaml" in result.output
 
 
+# --- critério A5: falha em runtime deixa o semântico explicitamente pendente
+
+
+def test_runtime_failure_degrades_with_the_semantic_pending_note(monkeypatch, ollama_down):
+    def boom(*, model, messages, response_format=None, stream=False, **kwargs):
+        raise litellm.APIConnectionError(message="down", llm_provider="anthropic", model=model)
+
+    monkeypatch.setattr(litellm, "completion", boom)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", SECRET)
+
+    result = runner.invoke(app, ["llm", "test"])
+
+    assert result.exit_code == 1
+    assert "semântica pendente" in result.output.lower()
+    assert "determinísticas seguem" in result.output.lower()
+    assert SECRET not in result.output
+
+
+# --- critério A3: o relatório mostra o modelo de fallback ------------------
+
+
+def test_fallback_model_appears_in_the_report(monkeypatch, clean_env, ollama_down):
+    def fail_default(*, model, messages, response_format=None, stream=False, **kwargs):
+        if model.startswith("anthropic"):
+            raise litellm.APIConnectionError(message="down", llm_provider="anthropic", model=model)
+        content = Ping(ok=True, message="via fallback").model_dump_json()
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+            _hidden_params={"response_cost": 0.0},
+        )
+
+    monkeypatch.setattr(litellm, "completion", fail_default)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", SECRET)
+    (clean_env / "specharness.yaml").write_text(
+        "llm:\n  default: anthropic/claude-3-5-sonnet-latest\n  fallback: ollama/llama3.2\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["llm", "test"])
+
+    assert result.exit_code == 0, result.output
+    assert "ollama/llama3.2" in result.output
+
+
 # --- descoberta ------------------------------------------------------------
 
 

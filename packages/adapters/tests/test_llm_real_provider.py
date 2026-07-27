@@ -14,19 +14,18 @@ import time
 
 import pytest
 from specharness_adapters.llm import check_connection
+from specharness_core.config import RoutingConfig
 
 TEST_MODEL_ENV = "SPECHARNESS_TEST_LLM_MODEL"
 BUDGET_S = 15.0  # métrica 1: < 15s por provedor
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get(TEST_MODEL_ENV, "").strip(),
-    reason=f"defina {TEST_MODEL_ENV} para exercer um provedor real",
-)
+# `reason=` fica na MESMA linha física do skipif: o gate de integridade
+# (scripts/test_integrity.py) lê o diff linha-a-linha e exige o par junto.
+_NO_MODEL = not os.environ.get(TEST_MODEL_ENV, "").strip()
+pytestmark = pytest.mark.skipif(_NO_MODEL, reason=f"defina {TEST_MODEL_ENV} para um provedor real")
 
 
 def test_a_real_call_validates_structured_output_within_budget():
-    from specharness_core.config import RoutingConfig
-
     routing = RoutingConfig(default=os.environ[TEST_MODEL_ENV])
 
     started = time.perf_counter()
