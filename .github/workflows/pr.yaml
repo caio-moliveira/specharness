@@ -21,12 +21,33 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+    # ADR-002 promete migrações testadas nos DOIS bancos. Sem este service, a
+    # metade Postgres da suíte de contrato nunca roda e o critério fica verde
+    # por ausência de teste (SPEC-004, decisão E3).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: specharness
+          POSTGRES_PASSWORD: specharness
+          POSTGRES_DB: specharness
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with: { enable-cache: true }
       - run: uv sync --python ${{ matrix.python-version }}
       - run: uv run pytest --cov=packages --cov-report=term-missing
+        env:
+          # O produto só conhece SPECHARNESS_DATABASE_URL; esta variável é do
+          # harness de teste, para que os casos SQLite continuem rodando na
+          # mesma sessão.
+          SPECHARNESS_TEST_POSTGRES_URL: postgresql://specharness:specharness@localhost:5432/specharness
 
   test-integrity:
     runs-on: ubuntu-latest
@@ -39,3 +60,5 @@ jobs:
       - run: uv sync
       - run: uv run python scripts/test_integrity.py --base origin/${{ github.base_ref }}
       - run: uv run pytest packages/core --cov=specharness_core --cov-fail-under=85
+      # Métrica 4 da SPEC-004. No CI para não apodrecer como métrica só-local.
+      - run: uv run pytest packages/adapters --cov=specharness_adapters.db --cov-fail-under=90
