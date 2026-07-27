@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -103,6 +104,23 @@ console = Console()
 # Errors go to stderr unwrapped: the message names an env var and a URL, and a
 # line break in the middle of either makes it harder to act on (SPEC-004).
 err_console = Console(stderr=True, soft_wrap=True)
+
+
+def _ensure_utf8_console() -> None:
+    # Consoles Windows padrão usam cp1252: sem isto, ✓/✗/⚠/→ estouram
+    # UnicodeEncodeError e acentos viram mojibake. O gate é por encoding (não
+    # por plataforma) e o hasattr é obrigatório: sob capsys/CliRunner o stream
+    # pode não expor reconfigure.
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", "") or "").replace("-", "").lower()
+        if encoding != "utf8" and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+@app.callback()
+def _main() -> None:
+    _ensure_utf8_console()
+
 
 connect_app = typer.Typer(
     name="connect",
