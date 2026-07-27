@@ -1,6 +1,6 @@
 # ADR-012 — pytest-bdd para o nosso gate BDD
 
-- **Status:** aceita
+- **Status:** substituída por ADR-018 (mecanismo de runner; o gate BDD permanece)
 - **Data:** 2026-07-25
 - **Specs relacionadas:** SPEC-001, SPEC-002
 
