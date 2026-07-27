@@ -6,10 +6,15 @@ knows how to reach it, migrate it and translate its failures.
 
 from .errors import classify
 from .gateway import SqlAlchemyDatabaseGateway, gateway_from_env
-from .models import Base, SchemaMeta
+from .models import Base, CommitRow, PullRequestCommitRow, PullRequestRow, SchemaMeta
+from .repository_store import RepositoryStore
 
 __all__ = [
     "Base",
+    "CommitRow",
+    "PullRequestCommitRow",
+    "PullRequestRow",
+    "RepositoryStore",
     "SchemaMeta",
     "SqlAlchemyDatabaseGateway",
     "classify",
