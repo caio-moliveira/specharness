@@ -72,3 +72,5 @@ jobs:
       - run: uv run pytest packages/adapters --cov=specharness_adapters.github_issues --cov-fail-under=90
       # Cobertura da camada LLM do Readiness Gate: gate + stores (SPEC-011).
       - run: uv run pytest packages/adapters --cov=specharness_adapters.llm.gate --cov=specharness_adapters.db.readiness_store --cov-fail-under=90
+      # Cobertura do runner de BDD + store de scenario runs (SPEC-012).
+      - run: uv run pytest packages/adapters --cov=specharness_adapters.verify --cov=specharness_adapters.db.scenario_run_store --cov-fail-under=90

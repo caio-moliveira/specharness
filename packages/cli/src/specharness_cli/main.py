@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +14,7 @@ from specharness_adapters.db import (
     OverrideStore,
     ReadinessCacheStore,
     RepositoryStore,
+    ScenarioRunStore,
     WorkItemStore,
     gateway_from_env,
 )
@@ -27,16 +29,20 @@ from specharness_adapters.llm import (
     evaluate_spec,
 )
 from specharness_adapters.redmine import RedmineClient
+from specharness_adapters.verify import StepRegistry, VerifyError, load_steps, run_spec
 from specharness_core import (
     Evaluation,
     Override,
     ReadinessReport,
+    ScenarioRun,
     SpecInfo,
     SpecParseError,
     SpecStatus,
+    VerifyReport,
     __version__,
     content_hash,
     evaluate_readiness,
+    is_ci,
     link_commits,
     parse_spec,
 )
@@ -110,7 +116,7 @@ def status() -> None:
         ("specharness connect issues", "SPEC-008", "disponível"),
         ("specharness track", "SPEC-009", "disponível"),
         ("specharness ready <spec>", "SPEC-010/011", "disponível"),
-        ("specharness verify", "SPEC-012", "planejado"),
+        ("specharness verify", "SPEC-012", "disponível"),
         ("specharness report", "SPEC-015", "planejado"),
     ]
     for row in rows:
@@ -340,6 +346,109 @@ def _render_readiness(spec_id: str, report: ReadinessReport) -> None:
         console.print(
             f"✗ {spec_id} não passa: {len(report.blockers)} bloqueador(es).", markup=False
         )
+
+
+@app.command()
+def verify(
+    spec: str = typer.Argument(..., help="id ou caminho da spec"),
+    ci: bool = typer.Option(False, "--ci", help="modo CI: marca first-run e persiste o resultado"),
+    json_out: bool = typer.Option(False, "--json", help="saída legível por máquina (JSON)"),
+    steps: str | None = typer.Option(None, "--steps", help="módulo Python com as step definitions"),
+) -> None:
+    """Executa os cenários BDD da spec e emite o veredito de done (SPEC-012).
+
+    Cada cenário vira passou/falhou/pendente (step sem definição = pendente,
+    distinto de falha). Qualquer cenário não-verde bloqueia done (exit 1). No CI
+    (--ci ou CI=true) o resultado é persistido como ScenarioRun e o primeiro run
+    após ready é marcado first-run; execuções locais são informativas. A
+    transição para done é exclusiva do CI (ADR-016).
+    """
+    path = _resolve_spec_path(spec)
+    if path is None:
+        err_console.print(f"✗ spec não encontrada: {spec}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    try:
+        parsed = parse_spec(path.read_text(encoding="utf-8"))
+    except SpecParseError as exc:
+        err_console.print(f"✗ {path.name}: {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    try:
+        registry = load_steps(Path(steps)) if steps else StepRegistry()
+    except VerifyError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    results = run_spec(parsed, registry)
+    in_ci = ci or is_ci(os.environ)
+    first_run = False
+    if in_ci:
+        try:
+            gateway = gateway_from_env()
+            gateway.migrate()
+            store = ScenarioRunStore(gateway.target)
+            first_run = not store.has_first_run(parsed.spec_id)
+            runs = [
+                ScenarioRun(parsed.spec_id, title, status, first_run=first_run)
+                for title, status in results
+            ]
+            store.record(runs, datetime.now())
+        except DatabaseError as exc:
+            err_console.print(f"✗ {exc}", markup=False, style="red")
+            raise typer.Exit(1) from None
+    else:
+        runs = [ScenarioRun(parsed.spec_id, title, status) for title, status in results]
+
+    report = VerifyReport(parsed.spec_id, tuple(runs))
+    if json_out or ci:
+        _emit_verify_json(report, first_run=first_run, in_ci=in_ci)
+    else:
+        _render_verify(report, first_run=first_run)
+    raise typer.Exit(0 if report.all_green else 1)
+
+
+def _emit_verify_json(report: VerifyReport, *, first_run: bool, in_ci: bool) -> None:
+    payload = {
+        "spec": report.spec_id,
+        "verdict": "green" if report.all_green else "blocked",
+        "in_ci": in_ci,
+        "first_run": first_run,
+        "totals": {
+            "passed": len(report.passed),
+            "failed": len(report.failed),
+            "pending": len(report.pending),
+        },
+        "scenarios": [{"title": r.scenario_title, "status": r.status} for r in report.runs],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+
+
+def _render_verify(report: VerifyReport, *, first_run: bool) -> None:
+    suffix = " [first-run]" if first_run else ""
+    table = Table(title=f"Verify BDD — {report.spec_id}{suffix}")
+    table.add_column("Cenário")
+    table.add_column("Status")
+    for run in report.runs:
+        table.add_row(run.scenario_title, run.status)
+    console.print(table)
+    console.print(
+        f"Verde: {len(report.passed)} · Falhou: {len(report.failed)} · "
+        f"Pendente: {len(report.pending)}",
+        markup=False,
+    )
+    for run in report.failed:
+        console.print(f"  ✗ falhou: {run.scenario_title}", markup=False, style="red")
+    for run in report.pending:
+        console.print(
+            f"  • pendente (sem step definition): {run.scenario_title} — implemente o passo",
+            markup=False,
+        )
+    if report.all_green:
+        console.print(
+            f"✓ {report.spec_id}: cenários verdes — done liberado (pelo CI).", markup=False
+        )
+    else:
+        console.print(f"✗ {report.spec_id}: done bloqueado.", markup=False, style="red")
 
 
 @connect_app.command("db")
