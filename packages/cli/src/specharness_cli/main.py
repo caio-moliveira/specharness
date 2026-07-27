@@ -3,23 +3,39 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
-from specharness_adapters.db import RepositoryStore, WorkItemStore, gateway_from_env
+from specharness_adapters.db import (
+    OverrideStore,
+    ReadinessCacheStore,
+    RepositoryStore,
+    WorkItemStore,
+    gateway_from_env,
+)
 from specharness_adapters.git import LocalGitCommitReader
 from specharness_adapters.github import GitHubClient
 from specharness_adapters.github_issues import GitHubIssuesClient
-from specharness_adapters.llm import check_connection, detect_providers
+from specharness_adapters.llm import (
+    PROMPT_VERSION,
+    check_connection,
+    client_from_env,
+    detect_providers,
+    evaluate_spec,
+)
 from specharness_adapters.redmine import RedmineClient
 from specharness_core import (
+    Evaluation,
+    Override,
     ReadinessReport,
     SpecInfo,
     SpecParseError,
     SpecStatus,
     __version__,
+    content_hash,
     evaluate_readiness,
     link_commits,
     parse_spec,
@@ -27,8 +43,10 @@ from specharness_core import (
 from specharness_core.config import (
     CONFIG_FILENAME,
     ConfigError,
+    ReadinessConfig,
     RoutingConfig,
     TrackerConfig,
+    load_readiness,
     load_routing,
     load_tracker,
 )
@@ -91,7 +109,7 @@ def status() -> None:
         ("specharness connect tracker", "SPEC-007", "disponível"),
         ("specharness connect issues", "SPEC-008", "disponível"),
         ("specharness track", "SPEC-009", "disponível"),
-        ("specharness ready <spec>", "SPEC-010/011", "parcial"),
+        ("specharness ready <spec>", "SPEC-010/011", "disponível"),
         ("specharness verify", "SPEC-012", "planejado"),
         ("specharness report", "SPEC-015", "planejado"),
     ]
@@ -165,28 +183,122 @@ def _render_track(result) -> None:
 
 
 @app.command()
-def ready(spec: str = typer.Argument(..., help="id ou caminho da spec (ex.: SPEC-010)")) -> None:
-    """Roda o piso determinístico do Readiness Gate sobre uma spec (SPEC-010).
+def ready(
+    spec: str = typer.Argument(..., help="id ou caminho da spec (ex.: SPEC-010)"),
+    override: bool = typer.Option(False, "--override", help="registra um override auditado"),
+    author: str | None = typer.Option(None, "--author", help="autor do override"),
+    reason: str | None = typer.Option(None, "--reason", help="justificativa do override"),
+) -> None:
+    """Roda o Readiness Gate sobre uma spec: piso determinístico + camada LLM.
 
-    Verifica mecanicamente o Definition of Ready: critério com cenário que o
-    cubra, métricas mensuráveis, depends_on existente e não-archived, e lint de
-    BDD. Sai com código 1 se houver bloqueadores. A camada LLM (SPEC-011) só
-    recebe specs que já passam aqui.
+    O piso mecânico (SPEC-010) roda primeiro; a camada LLM (SPEC-011) só avalia o
+    que passou. Score abaixo do limiar bloqueia. O Tech Lead pode liberar com
+    --override --author X --reason Y — o override é auditado (autor, data,
+    justificativa). Spec inalterada usa cache e não reavalia.
     """
     path = _resolve_spec_path(spec)
     if path is None:
         err_console.print(f"✗ spec não encontrada: {spec}", markup=False, style="red")
         raise typer.Exit(1) from None
+    text = path.read_text(encoding="utf-8")
     try:
-        parsed = parse_spec(path.read_text(encoding="utf-8"))
+        parsed = parse_spec(text)
     except SpecParseError as exc:
         err_console.print(f"✗ {path.name}: {exc}", markup=False, style="red")
         raise typer.Exit(1) from None
+
+    if override:
+        _record_override(parsed.spec_id, author, reason)
+        return
 
     report = evaluate_readiness(parsed, _load_registry())
     _render_readiness(parsed.spec_id, report)
     if not report.passed:
         raise typer.Exit(1)
+
+    if not detect_providers(os.environ):
+        console.print(
+            "⚠ Camada semântica pendente: nenhum provedor LLM. O piso determinístico passou.",
+            markup=False,
+        )
+        err_console.print(f"  {onboarding_status(semantic_ready=False).guidance}", markup=False)
+        raise typer.Exit(1)
+
+    threshold = _load_readiness_config().threshold
+    try:
+        evaluation = _evaluate_llm(text)
+    except LLMError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    _render_evaluation(parsed.spec_id, evaluation, threshold)
+    if evaluation.blocks(threshold):
+        raise typer.Exit(1)
+
+
+def _record_override(spec_id: str, author: str | None, reason: str | None) -> None:
+    if not author or not reason:
+        err_console.print(
+            "✗ override exige --author e --reason (autor e justificativa auditados)",
+            markup=False,
+            style="red",
+        )
+        raise typer.Exit(1) from None
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+        OverrideStore(gateway.target).record(
+            Override(spec_id=spec_id, author=author, justification=reason, at=datetime.now().date())
+        )
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    console.print(
+        f"✓ Override registrado por {author}: {spec_id} liberada para ready.", markup=False
+    )
+    console.print(f"  Justificativa: {reason}", markup=False)
+
+
+def _evaluate_llm(text: str) -> Evaluation:
+    gateway = gateway_from_env()
+    gateway.migrate()
+    cache = ReadinessCacheStore(gateway.target)
+    key = content_hash(text, PROMPT_VERSION)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    client = client_from_env(os.environ, routing=_load_routing(), task="readiness_gate")
+    evaluation = evaluate_spec(text, client)
+    cache.put(key, evaluation, datetime.now())
+    return evaluation
+
+
+def _load_readiness_config() -> ReadinessConfig:
+    path = Path.cwd() / CONFIG_FILENAME
+    if not path.is_file():
+        return ReadinessConfig()
+    return load_readiness(path.read_text(encoding="utf-8"))
+
+
+def _render_evaluation(spec_id: str, evaluation: Evaluation, threshold: int) -> None:
+    origin = "cache" if evaluation.cached else evaluation.model
+    console.print(
+        f"Avaliação LLM — score {evaluation.score}/100 (limiar {threshold}) · "
+        f"{origin} · custo {evaluation.cost_label}",
+        markup=False,
+    )
+    for issue in evaluation.issues:
+        console.print(
+            f"  • [{issue.category}] {issue.description} → {issue.suggestion}", markup=False
+        )
+    if evaluation.blocks(threshold):
+        console.print(
+            f"✗ {spec_id} bloqueada pela camada LLM (score < {threshold}). "
+            "Libere com --override --author X --reason Y se for decisão do Tech Lead.",
+            markup=False,
+        )
+    else:
+        console.print(f"✓ {spec_id} passa na camada LLM.", markup=False)
 
 
 def _resolve_spec_path(spec: str) -> Path | None:

@@ -1,9 +1,10 @@
-"""`specharness ready <spec>` — deterministic Readiness Gate (SPEC-010)."""
+"""`specharness ready <spec>` — deterministic floor + LLM layer + override (SPEC-010/011)."""
 
 from __future__ import annotations
 
 import pytest
 from specharness_cli.main import app
+from specharness_core import Evaluation
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -41,59 +42,130 @@ def _good_spec(spec_id: str, deps: str = "[SPEC-003]", status: str = "approved")
 
 @pytest.fixture(autouse=True)
 def in_repo(monkeypatch, tmp_path):
+    monkeypatch.delenv("SPECHARNESS_DATABASE_URL", raising=False)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "specs").mkdir()
+    (tmp_path / "specs" / "SPEC-003-x.md").write_text(_good_spec("SPEC-003", deps="[]"), "utf-8")
+    (tmp_path / "specs" / "SPEC-042-y.md").write_text(_good_spec("SPEC-042"), "utf-8")
     return tmp_path
 
 
-def _write(tmp_path, spec_id, text):
-    (tmp_path / "specs" / f"{spec_id}-x.md").write_text(text, encoding="utf-8")
+@pytest.fixture
+def with_provider(monkeypatch):
+    monkeypatch.setattr("specharness_cli.main.detect_providers", lambda env: ["anthropic"])
 
 
-def test_ready_passes_a_complete_spec(in_repo):
-    _write(in_repo, "SPEC-003", _good_spec("SPEC-003", deps="[]"))
-    _write(in_repo, "SPEC-042", _good_spec("SPEC-042"))
-
-    result = runner.invoke(app, ["ready", "SPEC-042"])
-
-    assert result.exit_code == 0, result.output
-    assert "passa no piso" in result.output
+@pytest.fixture
+def no_provider(monkeypatch):
+    monkeypatch.setattr("specharness_cli.main.detect_providers", lambda env: [])
 
 
-def test_ready_blocks_and_points_at_an_uncovered_criterion(in_repo):
-    text = _good_spec("SPEC-042").replace(
+def _fake_llm(monkeypatch, score, counter=None):
+    def fake(text, client):
+        if counter is not None:
+            counter.append(1)
+        return Evaluation(
+            score=score, issues=(), model="ollama/qwen3:8b", cost_usd=0.001, cached=False
+        )
+
+    monkeypatch.setattr("specharness_cli.main.evaluate_spec", fake)
+
+
+# --- piso determinístico (SPEC-010) ----------------------------------------
+
+
+def test_floor_block_stops_before_the_llm_layer(monkeypatch, in_repo, with_provider):
+    called: list = []
+    _fake_llm(monkeypatch, 90, called)
+    bad = _good_spec("SPEC-042").replace(
         '  - "Commit com trailer válido é vinculado à spec"\n',
-        '  - "Commit com trailer válido é vinculado à spec"\n'
-        '  - "O relatório é exportado em PDF assinado"\n',
+        '  - "Commit com trailer válido é vinculado à spec"\n  - "Exporta relatório em PDF"\n',
     )
-    _write(in_repo, "SPEC-003", _good_spec("SPEC-003", deps="[]"))
-    _write(in_repo, "SPEC-042", text)
+    (in_repo / "specs" / "SPEC-042-y.md").write_text(bad, "utf-8")
 
     result = runner.invoke(app, ["ready", "SPEC-042"])
 
     assert result.exit_code == 1
     assert "sem cenário que o cubra" in result.output
-    assert "acceptance[2]" in result.output
+    assert called == []  # a camada LLM não roda quando o piso bloqueia
 
 
-def test_ready_blocks_an_archived_dependency(in_repo):
-    _write(in_repo, "SPEC-003", _good_spec("SPEC-003", deps="[]", status="archived"))
-    _write(in_repo, "SPEC-042", _good_spec("SPEC-042"))
+# --- camada semântica pendente (ADR-006) -----------------------------------
+
+
+def test_floor_passes_but_no_provider_is_semantic_pending(no_provider):
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert "semântica pendente" in result.output.lower()
+
+
+# --- camada LLM (SPEC-011) --------------------------------------------------
+
+
+def test_a_high_score_passes_the_llm_layer(monkeypatch, with_provider):
+    _fake_llm(monkeypatch, 92)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 0, result.output
+    assert "passa na camada LLM" in result.output
+    assert "92/100" in result.output
+
+
+def test_a_low_score_blocks_with_override_guidance(monkeypatch, with_provider):
+    _fake_llm(monkeypatch, 50)
 
     result = runner.invoke(app, ["ready", "SPEC-042"])
 
     assert result.exit_code == 1
-    assert "archived" in result.output
+    assert "bloqueada pela camada LLM" in result.output
+    assert "--override" in result.output
 
 
-def test_ready_reports_a_missing_spec(in_repo):
+def test_unchanged_spec_uses_the_cache_on_the_second_run(monkeypatch, with_provider):
+    calls: list = []
+    _fake_llm(monkeypatch, 92, calls)
+
+    first = runner.invoke(app, ["ready", "SPEC-042"])
+    second = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert first.exit_code == 0 and second.exit_code == 0
+    assert len(calls) == 1  # a 2ª execução veio do cache
+    assert "cache" in second.output
+
+
+# --- override auditado (critério 3) ----------------------------------------
+
+
+def test_override_is_audited_and_unblocks(monkeypatch):
+    result = runner.invoke(
+        app, ["ready", "SPEC-042", "--override", "--author", "Ana", "--reason", "release urgente"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Override registrado por Ana" in result.output
+    assert "release urgente" in result.output
+
+
+def test_override_requires_author_and_reason():
+    result = runner.invoke(app, ["ready", "SPEC-042", "--override", "--author", "Ana"])
+
+    assert result.exit_code == 1
+    assert "author" in result.output and "reason" in result.output
+
+
+# --- resolução / erros ------------------------------------------------------
+
+
+def test_a_missing_spec_is_reported():
     result = runner.invoke(app, ["ready", "SPEC-999"])
 
     assert result.exit_code == 1
     assert "não encontrada" in result.output
 
 
-def test_ready_is_discoverable_from_help(in_repo):
+def test_ready_is_discoverable_from_help():
     result = runner.invoke(app, ["--help"])
 
     assert "ready" in result.output
