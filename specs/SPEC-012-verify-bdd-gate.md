@@ -1,7 +1,7 @@
 ---
 spec: SPEC-012
 title: "verify: cenários BDD como gate de done no CI"
-status: ready
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-25
