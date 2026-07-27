@@ -73,6 +73,18 @@ def test_exhausted_retries_raise_an_llm_error_not_a_validation_error():
     assert client.calls == 3  # tentativa inicial + 2 retries
 
 
+def test_a_transport_error_is_not_retried_only_schema_failures_are():
+    # se o retry pegasse LLMError, a 2ª resposta (válida) faria passar — não deve
+    client = FakeClient(
+        [(LLMError.for_provider("ollama", "rede fora"), None), (_assessment(90), 0.0)]
+    )
+
+    with pytest.raises(LLMError):
+        evaluate_spec("s", client, max_retries=2)
+
+    assert client.calls == 1  # erro de transporte propaga na 1ª tentativa
+
+
 def test_the_prompt_includes_the_spec_text():
     assert "MINHA SPEC AQUI" in build_prompt("MINHA SPEC AQUI")
 

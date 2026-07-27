@@ -1,7 +1,7 @@
 ---
 spec: SPEC-011
 title: "Readiness Gate: camada LLM (score, issues acionáveis e override auditado)"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
