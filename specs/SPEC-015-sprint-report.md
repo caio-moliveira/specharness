@@ -1,7 +1,7 @@
 ---
 spec: SPEC-015
 title: "report: relatório de sprint (tabular determinístico + narrativa LLM)"
-status: ready
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-25
