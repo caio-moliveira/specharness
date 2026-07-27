@@ -1,7 +1,7 @@
 ---
 spec: SPEC-009
 title: "track: linking commit->spec via trailer e detecção de órfãos"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
@@ -48,8 +48,24 @@ Funcionalidade: linking de commits a specs
     Quando o track processa o commit
     Então o commit entra na contagem de commits órfãos da sprint
 
+  Cenário: spec in_progress sem commit vira métrica de órfã
+    Dado uma spec in_progress sem nenhum commit vinculado
+    Quando o track é executado
+    Então a spec entra na contagem de specs órfãs
+
   Cenário: múltiplos trailers geram múltiplos vínculos
     Dado um commit com trailers "Spec: SPEC-010" e "Spec: SPEC-011"
     Quando o track processa o commit
     Então o commit fica vinculado às duas specs
 ```
+
+## Notas de implementação
+
+O linking é **decisão pura no core** (`link_commits`): recebe os commits (com os
+trailers `Spec:` já extraídos na ingestão da SPEC-006) e o registro de specs do
+disco (SPEC-003), e devolve vínculos válidos/inválidos, commits órfãos e specs
+órfãs — sem I/O, sem tabela nova (calculado a cada `track`, métrica 3). Um trailer
+mal-formado ou para spec inexistente vira vínculo inválido (sinalizado, nunca
+descartado). A paridade com `git interpret-trailers` (ADR-011, métrica 2) é
+pinada por uma suíte de equivalência. "Commits órfãos da sprint" é contado
+globalmente — um commit sem trailer não pertence a uma sprint.
