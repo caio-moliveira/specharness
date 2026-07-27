@@ -10,6 +10,14 @@ paragraph, it must be preceded by a blank line (so a subject-only message has
 none), and *every* non-blank line in it must be a trailer — a continuation line
 (leading whitespace) only counts after a trailer. A single prose line in the
 final block means git sees no trailers at all, so neither do we.
+
+Parity scope (pinned by the equivalence suite, SPEC-009): this agrees with git
+for real commit messages. Two contrived edge cases are known to differ and are
+accepted, not hidden: a continuation line folded onto a `Spec:` value (git folds
+`SPEC-042\n  x` into one value, we keep `SPEC-042` — the human's intent, and the
+folded value fails SPEC-NNN validation anyway); and a colon with no space
+(`Spec:X`), which we treat as prose so the commit surfaces as an orphan in the
+hygiene report — never a false link. Neither occurs in a normal `Spec:` trailer.
 """
 
 from __future__ import annotations
