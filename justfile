@@ -25,6 +25,10 @@ cov:
 cov-db:
     uv run pytest packages/adapters --cov=specharness_adapters.db --cov-report=term-missing --cov-fail-under=90
 
+# Cobertura do adapter de LLM (métrica da SPEC-005 — ADR-016: medida, não afirmada)
+cov-llm:
+    uv run pytest packages/adapters --cov=specharness_adapters.llm --cov-report=term-missing --cov-fail-under=90
+
 # Mutation score do parser: cobertura diz que o teste rodou, isto diz que ele prova
 mutants threshold="90":
     uv run python scripts/mutants.py --threshold {{threshold}}

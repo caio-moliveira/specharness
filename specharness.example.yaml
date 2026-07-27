@@ -1,0 +1,14 @@
+# specharness — configuração do projeto (exemplo). Copie para specharness.yaml.
+#
+# Roteamento de modelos por tarefa (SPEC-005). As KEYS NUNCA vão aqui — elas
+# vêm só de variáveis de ambiente (ADR-006, métrica 3). Veja .env.example.
+llm:
+  # Modelo usado quando a tarefa não tem override.
+  default: anthropic/claude-3-5-sonnet-latest
+
+  # Modelo por tarefa. A chamada usa o modelo da tarefa, não o default.
+  tasks:
+    readiness_gate: anthropic/claude-3-5-haiku-latest
+
+  # Tentado quando a chamada principal falha em runtime (degradação — ADR-006).
+  fallback: ollama/llama3.2

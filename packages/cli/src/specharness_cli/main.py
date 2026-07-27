@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 from specharness_adapters.db import gateway_from_env
+from specharness_adapters.llm import check_connection, detect_providers
 from specharness_core import __version__
+from specharness_core.config import CONFIG_FILENAME, ConfigError, RoutingConfig, load_routing
 from specharness_core.ports.database import DatabaseError
+from specharness_core.ports.llm import LLMError, onboarding_status
 
 app = typer.Typer(
     name="specharness",
@@ -28,6 +32,13 @@ connect_app = typer.Typer(
 )
 app.add_typer(connect_app, name="connect")
 
+llm_app = typer.Typer(
+    name="llm",
+    help="Conexão LLM do onboarding — obrigatória (SPEC-005, ADR-006).",
+    no_args_is_help=True,
+)
+app.add_typer(llm_app, name="llm")
+
 
 @app.command()
 def version() -> None:
@@ -44,7 +55,7 @@ def status() -> None:
     table.add_column("Estado")
     rows = [
         ("specharness connect db", "SPEC-004", "disponível"),
-        ("specharness llm test", "SPEC-005", "planejado"),
+        ("specharness llm test", "SPEC-005", "disponível"),
         ("specharness connect repo", "SPEC-006", "planejado"),
         ("specharness track", "SPEC-009", "planejado"),
         ("specharness ready <spec>", "SPEC-010/011", "planejado"),
@@ -94,6 +105,60 @@ def _describe(gateway) -> str:
     except ValueError:
         shown = path.as_posix()
     return f"SQLite em {shown}"
+
+
+@llm_app.command("test")
+def llm_test(
+    task: str | None = typer.Option(
+        None, "--task", help="Usa o modelo roteado para esta tarefa em specharness.yaml."
+    ),
+) -> None:
+    """Valida a conexão LLM com uma chamada real e structured output (SPEC-005).
+
+    Detecta o provedor pelo ambiente: uma API key (ANTHROPIC/OPENAI/AZURE) ou o
+    Ollama local, oferecido como caminho de custo zero. Sem nenhuma via
+    funcional, o Readiness Gate fica bloqueado — as funções determinísticas
+    seguem disponíveis (ADR-006). O roteamento por tarefa lê specharness.yaml.
+    """
+    env = os.environ
+    try:
+        routing = _load_routing()
+    except ConfigError as exc:
+        err_console.print(f"✗ {CONFIG_FILENAME}: {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    # No task pinned: detect what is actually usable. No path at all blocks the
+    # gate with guidance for both vias, but never the deterministic floor.
+    if task is None and not detect_providers(env):
+        status = onboarding_status(semantic_ready=False)
+        err_console.print(f"✗ {status.guidance}", markup=False, style="red")
+        err_console.print("  Funções determinísticas seguem disponíveis (ADR-006).", markup=False)
+        raise typer.Exit(1) from None
+
+    try:
+        report = check_connection(env, routing=routing, task=task)
+    except LLMError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        err_console.print(
+            "  Camada semântica pendente; funções determinísticas seguem (ADR-006).",
+            markup=False,
+        )
+        raise typer.Exit(1) from None
+
+    console.print(
+        f"✓ LLM conectado — {report.provider} · {report.model}", markup=False, soft_wrap=True
+    )
+    console.print(
+        f"  Latência {report.latency_s:.2f}s · custo estimado {report.cost_label}", markup=False
+    )
+
+
+def _load_routing() -> RoutingConfig | None:
+    """Read specharness.yaml from the repo root, if present."""
+    path = Path.cwd() / CONFIG_FILENAME
+    if not path.is_file():
+        return None
+    return load_routing(path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
