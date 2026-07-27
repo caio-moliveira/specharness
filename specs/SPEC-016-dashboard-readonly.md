@@ -1,7 +1,7 @@
 ---
 spec: SPEC-016
 title: "Dashboard web read-only: big picture e visão pipeline por spec"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
