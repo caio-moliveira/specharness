@@ -8,18 +8,32 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
-from specharness_adapters.db import RepositoryStore, gateway_from_env
+from specharness_adapters.db import RepositoryStore, WorkItemStore, gateway_from_env
 from specharness_adapters.git import LocalGitCommitReader
 from specharness_adapters.github import GitHubClient
 from specharness_adapters.llm import check_connection, detect_providers
+from specharness_adapters.redmine import RedmineClient
 from specharness_core import __version__
-from specharness_core.config import CONFIG_FILENAME, ConfigError, RoutingConfig, load_routing
+from specharness_core.config import (
+    CONFIG_FILENAME,
+    ConfigError,
+    RoutingConfig,
+    TrackerConfig,
+    load_routing,
+    load_tracker,
+)
 from specharness_core.ports.database import DatabaseError
 from specharness_core.ports.llm import LLMError, onboarding_status
 from specharness_core.ports.repository import (
     GITHUB_TOKEN_ENV,
     AuthenticationFailed,
     RepositoryError,
+)
+from specharness_core.ports.tracker import (
+    REDMINE_API_KEY_ENV,
+    InvalidTrackerConfig,
+    TrackerAuthenticationFailed,
+    TrackerError,
 )
 
 app = typer.Typer(
@@ -64,6 +78,7 @@ def status() -> None:
         ("specharness connect db", "SPEC-004", "disponível"),
         ("specharness llm test", "SPEC-005", "disponível"),
         ("specharness connect repo", "SPEC-006", "disponível"),
+        ("specharness connect tracker", "SPEC-007", "disponível"),
         ("specharness track", "SPEC-009", "planejado"),
         ("specharness ready <spec>", "SPEC-010/011", "planejado"),
         ("specharness verify", "SPEC-012", "planejado"),
@@ -156,6 +171,55 @@ def connect_repo() -> None:
         console.print("  Nada novo desde o último sync.", markup=False)
 
 
+@connect_app.command("tracker")
+def connect_tracker() -> None:
+    """Importa issues e versions do Redmine como WorkItems canônicos (SPEC-007).
+
+    Lê a URL e o projeto de `specharness.yaml` (seção `tracker`) e a API key de
+    REDMINE_API_KEY. O import é idempotente: rodar de novo atualiza mudanças de
+    status e não duplica nada.
+    """
+    try:
+        config = _load_tracker()
+    except ConfigError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    if config is None or not config.url or not config.project:
+        exc = InvalidTrackerConfig.because(
+            f"defina tracker.url e tracker.project em {CONFIG_FILENAME}"
+        )
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    if not os.environ.get(REDMINE_API_KEY_ENV, "").strip():
+        exc = TrackerAuthenticationFailed.for_tracker(
+            config.url, detail=f"{REDMINE_API_KEY_ENV} não definida"
+        )
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    api_key = os.environ[REDMINE_API_KEY_ENV].strip()
+
+    try:
+        client = RedmineClient(config.url, api_key, config.project)
+        items = list(client.work_items())
+        gateway = gateway_from_env()
+        gateway.migrate()
+        result = WorkItemStore(gateway.target).sync(client.origin, items)
+    except (TrackerError, DatabaseError) as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    console.print(f"✓ Tracker conectado — Redmine · {config.project}", markup=False, soft_wrap=True)
+    console.print(
+        f"  {result.total_items} WorkItems "
+        f"({result.new_items} novos, {result.updated_items} atualizados).",
+        markup=False,
+    )
+    if result.was_noop:
+        console.print("  Nada novo desde o último import.", markup=False)
+
+
 @llm_app.command("test")
 def llm_test(
     task: str | None = typer.Option(
@@ -208,6 +272,14 @@ def _load_routing() -> RoutingConfig | None:
     if not path.is_file():
         return None
     return load_routing(path.read_text(encoding="utf-8"))
+
+
+def _load_tracker() -> TrackerConfig | None:
+    """Read the tracker section of specharness.yaml from the repo root, if present."""
+    path = Path.cwd() / CONFIG_FILENAME
+    if not path.is_file():
+        return None
+    return load_tracker(path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -33,6 +33,10 @@ cov-llm:
 cov-repo:
     uv run pytest packages/adapters --cov=specharness_adapters.git --cov=specharness_adapters.github --cov=specharness_adapters.db.repository_store --cov-report=term-missing --cov-fail-under=90
 
+# Cobertura do adapter de tracker: Redmine + store (SPEC-007 — ADR-016)
+cov-tracker:
+    uv run pytest packages/adapters --cov=specharness_adapters.redmine --cov=specharness_adapters.db.workitem_store --cov-report=term-missing --cov-fail-under=90
+
 # Mutation score do parser: cobertura diz que o teste rodou, isto diz que ele prova
 mutants threshold="90":
     uv run python scripts/mutants.py --threshold {{threshold}}
