@@ -15,9 +15,12 @@ from specharness_adapters.github_issues import GitHubIssuesClient
 from specharness_adapters.llm import check_connection, detect_providers
 from specharness_adapters.redmine import RedmineClient
 from specharness_core import (
+    ReadinessReport,
     SpecInfo,
     SpecParseError,
+    SpecStatus,
     __version__,
+    evaluate_readiness,
     link_commits,
     parse_spec,
 )
@@ -88,7 +91,7 @@ def status() -> None:
         ("specharness connect tracker", "SPEC-007", "disponível"),
         ("specharness connect issues", "SPEC-008", "disponível"),
         ("specharness track", "SPEC-009", "disponível"),
-        ("specharness ready <spec>", "SPEC-010/011", "planejado"),
+        ("specharness ready <spec>", "SPEC-010/011", "parcial"),
         ("specharness verify", "SPEC-012", "planejado"),
         ("specharness report", "SPEC-015", "planejado"),
     ]
@@ -159,6 +162,72 @@ def _render_track(result) -> None:
         console.print(f"  ⚠ spec órfã (in_progress sem commit): {spec_id}", markup=False)
     if result.is_clean:
         console.print("✓ Pipeline limpa.", markup=False)
+
+
+@app.command()
+def ready(spec: str = typer.Argument(..., help="id ou caminho da spec (ex.: SPEC-010)")) -> None:
+    """Roda o piso determinístico do Readiness Gate sobre uma spec (SPEC-010).
+
+    Verifica mecanicamente o Definition of Ready: critério com cenário que o
+    cubra, métricas mensuráveis, depends_on existente e não-archived, e lint de
+    BDD. Sai com código 1 se houver bloqueadores. A camada LLM (SPEC-011) só
+    recebe specs que já passam aqui.
+    """
+    path = _resolve_spec_path(spec)
+    if path is None:
+        err_console.print(f"✗ spec não encontrada: {spec}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    try:
+        parsed = parse_spec(path.read_text(encoding="utf-8"))
+    except SpecParseError as exc:
+        err_console.print(f"✗ {path.name}: {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    report = evaluate_readiness(parsed, _load_registry())
+    _render_readiness(parsed.spec_id, report)
+    if not report.passed:
+        raise typer.Exit(1)
+
+
+def _resolve_spec_path(spec: str) -> Path | None:
+    candidate = Path(spec)
+    if candidate.suffix == ".md" and candidate.is_file():
+        return candidate
+    specs_dir = Path.cwd() / "specs"
+    matches = sorted(specs_dir.glob(f"{spec}-*.md")) + sorted(specs_dir.glob(f"{spec}.md"))
+    return matches[0] if matches else None
+
+
+def _load_registry() -> dict[str, SpecStatus]:
+    return {info.spec_id: SpecStatus(info.status) for info in _load_spec_infos()}
+
+
+def _render_readiness(spec_id: str, report: ReadinessReport) -> None:
+    table = Table(title=f"Matriz critério × cenário — {spec_id}")
+    table.add_column("#")
+    table.add_column("Critério")
+    table.add_column("Coberto por")
+    for row in report.matrix:
+        covered = ", ".join(f"cenário {i}" for i in row.covered_by) if row.covered_by else "—"
+        table.add_row(str(row.index), row.criterion, covered)
+    console.print(table)
+
+    if report.blockers:
+        console.print(f"Bloqueadores ({len(report.blockers)}):", markup=False, style="red")
+        for blocker in report.blockers:
+            console.print(f"  ✗ [{blocker.location}] {blocker.message}", markup=False, style="red")
+    if report.recommendations:
+        console.print(f"Recomendações ({len(report.recommendations)}):", markup=False)
+        for rec in report.recommendations:
+            suffix = f" — {rec.suggestion}" if rec.suggestion else ""
+            console.print(f"  • [{rec.location}] {rec.message}{suffix}", markup=False)
+
+    if report.passed:
+        console.print(f"✓ {spec_id} passa no piso determinístico do Readiness Gate.", markup=False)
+    else:
+        console.print(
+            f"✗ {spec_id} não passa: {len(report.blockers)} bloqueador(es).", markup=False
+        )
 
 
 @connect_app.command("db")
