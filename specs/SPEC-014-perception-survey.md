@@ -1,7 +1,7 @@
 ---
 spec: SPEC-014
 title: "Percepção do dev: micro-survey no merge (experience sampling)"
-status: ready
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-25
