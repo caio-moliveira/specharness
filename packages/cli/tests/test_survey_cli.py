@@ -8,6 +8,7 @@ from datetime import datetime
 import pytest
 from specharness_adapters.db import (
     MetricSnapshotStore,
+    PerceptionStore,
     RepositoryStore,
     SqlAlchemyDatabaseGateway,
 )
@@ -92,6 +93,9 @@ def test_a_pr_without_a_linked_spec_is_refused(env):
     )
     assert result.exit_code == 1
     assert "sem spec" in result.output.lower()
+    # nada é persistido na recusa
+    target = resolve_database_target({DATABASE_URL_ENV: ""}, project_root=env)
+    assert PerceptionStore(target).has_response("acme/tool#999") is False
 
 
 def test_a_skip_is_not_re_prompted(env):
@@ -128,6 +132,9 @@ def test_an_out_of_range_answer_is_rejected(env):
     )
     assert result.exit_code == 1
     assert "entre 1 e 5" in result.output
+    # item inválido não persiste amostra
+    target = resolve_database_target({DATABASE_URL_ENV: ""}, project_root=env)
+    assert PerceptionStore(target).has_response("acme/tool#7") is False
 
 
 def test_perception_aggregate_exposes_only_aggregates(env):
