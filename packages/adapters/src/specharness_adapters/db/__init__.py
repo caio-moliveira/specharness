@@ -6,9 +6,11 @@ knows how to reach it, migrate it and translate its failures.
 
 from .errors import classify
 from .gateway import SqlAlchemyDatabaseGateway, gateway_from_env
+from .metrics_store import MetricSnapshotStore
 from .models import (
     Base,
     CommitRow,
+    MetricSnapshotRow,
     PullRequestCommitRow,
     PullRequestRow,
     ReadinessCacheRow,
@@ -25,6 +27,8 @@ from .workitem_store import WorkItemStore
 __all__ = [
     "Base",
     "CommitRow",
+    "MetricSnapshotRow",
+    "MetricSnapshotStore",
     "OverrideStore",
     "PullRequestCommitRow",
     "PullRequestRow",

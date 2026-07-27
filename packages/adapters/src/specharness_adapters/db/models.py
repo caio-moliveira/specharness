@@ -125,6 +125,25 @@ class ScenarioRunRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class MetricSnapshotRow(Base):
+    """An immutable camada-2 metrics snapshot for a sprint (SPEC-013, ADR-008).
+
+    Append-only *series*: recording a sprint's metrics inserts a row with the
+    next `series` number for that sprint. A correction to a calculation is a new
+    series, never an update — so `series=1` stays readable after `series=2` lands
+    (acceptance "correções geram nova série, nunca sobrescrevem"). `payload` is
+    the serialized `SprintSnapshot`; the dashboard reads one sprint with one query.
+    """
+
+    __tablename__ = "metric_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sprint: Mapped[str] = mapped_column(String(128), nullable=False)
+    series: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class WorkItemRow(Base):
     """A canonical WorkItem imported from a tracker (SPEC-007, ADR-007).
 

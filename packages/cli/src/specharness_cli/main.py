@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 from specharness_adapters.db import (
+    MetricSnapshotStore,
     OverrideStore,
     ReadinessCacheStore,
     RepositoryStore,
@@ -28,6 +29,13 @@ from specharness_adapters.llm import (
     detect_providers,
     evaluate_spec,
 )
+from specharness_adapters.metrics import (
+    SprintHygieneReader,
+    StatusHistoryReader,
+    SurveillanceRejected,
+    TurnoverReader,
+    guard_query,
+)
 from specharness_adapters.redmine import RedmineClient
 from specharness_adapters.verify import StepRegistry, VerifyError, load_steps, run_spec
 from specharness_core import (
@@ -36,15 +44,22 @@ from specharness_core import (
     ReadinessReport,
     ScenarioRun,
     SpecInfo,
+    SpecMetrics,
     SpecParseError,
     SpecStatus,
+    SprintSnapshot,
     VerifyReport,
     __version__,
     content_hash,
+    cycle_time_seconds,
     evaluate_readiness,
+    first_run_pass_rate,
+    hygiene_report,
     is_ci,
+    iterations_to_green,
     link_commits,
     parse_spec,
+    turnover_ratio,
 )
 from specharness_core.config import (
     CONFIG_FILENAME,
@@ -117,6 +132,7 @@ def status() -> None:
         ("specharness track", "SPEC-009", "disponível"),
         ("specharness ready <spec>", "SPEC-010/011", "disponível"),
         ("specharness verify", "SPEC-012", "disponível"),
+        ("specharness metrics <sprint>", "SPEC-013", "disponível"),
         ("specharness report", "SPEC-015", "planejado"),
     ]
     for row in rows:
@@ -449,6 +465,185 @@ def _render_verify(report: VerifyReport, *, first_run: bool) -> None:
         )
     else:
         console.print(f"✗ {report.spec_id}: done bloqueado.", markup=False, style="red")
+
+
+@app.command()
+def metrics(
+    sprint: str = typer.Argument(..., help="sprint a calcular (ex.: 2026-A4)"),
+    repo: str = typer.Option(".", "--repo", help="raiz do repositório git"),
+    specs_dir: str = typer.Option("specs", "--specs", help="diretório das specs"),
+    base: str | None = typer.Option(None, "--base", help="ref base para higiene de tampering"),
+    by: str | None = typer.Option(
+        None, "--by", help="eixos de agregação (vírgula); indivíduo é rejeitado (ADR-008)"
+    ),
+    json_out: bool = typer.Option(False, "--json", help="saída legível por máquina (JSON)"),
+) -> None:
+    """Calcula e persiste o snapshot de métricas objetivas de uma sprint (SPEC-013).
+
+    As métricas derivam só de artefatos brutos: cycle time vem do histórico de
+    status no git, first-run e iterações de scenario_runs, turnover de git blame na
+    janela — número auto-relatado por agente nunca entra (ADR-016). Snapshots são
+    append-only; recalcular gera nova série. Consultas por indivíduo são recusadas
+    pela política anti-vigilância (ADR-008).
+    """
+    dimensions = [d.strip() for d in by.split(",")] if by else []
+    try:
+        guard_query(dimensions)
+    except SurveillanceRejected as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(2) from None
+
+    repo_path = Path(repo)
+    specs = _sprint_specs(Path(specs_dir), sprint)
+    if not specs:
+        err_console.print(f"✗ nenhuma spec na sprint {sprint}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    as_of = datetime.now(UTC)
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    run_store = ScenarioRunStore(gateway.target)
+    snap_store = MetricSnapshotStore(gateway.target)
+
+    try:
+        turnover = TurnoverReader(repo_path)
+        baseline_30 = turnover.repo_baseline(window_days=30, as_of=as_of)
+        baseline_90 = turnover.repo_baseline(window_days=90, as_of=as_of)
+        commits = list(LocalGitCommitReader(repo_path).commits())
+        spec_metrics = tuple(
+            _spec_metrics(
+                spec_id,
+                relpath,
+                repo_path,
+                run_store,
+                turnover,
+                commits,
+                as_of,
+                baseline_30,
+                baseline_90,
+            )
+            for spec_id, relpath in specs
+        )
+        hygiene = tuple(SprintHygieneReader(repo_path).signals(base)) if base is not None else ()
+    except RepositoryError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    snapshot = SprintSnapshot(sprint=sprint, specs=spec_metrics, hygiene=hygiene)
+    series = snap_store.record(snapshot, as_of)
+
+    if json_out:
+        _emit_metrics_json(snapshot, series)
+    else:
+        _render_metrics(snapshot, series)
+
+
+def _sprint_specs(specs_dir: Path, sprint: str) -> list[tuple[str, str]]:
+    """(spec_id, path-relative-to-cwd) for every spec whose frontmatter is this sprint."""
+    selected: list[tuple[str, str]] = []
+    for path in sorted(specs_dir.glob("SPEC-*.md")):
+        try:
+            parsed = parse_spec(path.read_text(encoding="utf-8"))
+        except SpecParseError:
+            continue
+        if parsed.frontmatter.sprint == sprint:
+            selected.append((parsed.spec_id, str(path)))
+    return selected
+
+
+def _spec_metrics(
+    spec_id, relpath, repo, run_store, turnover, commits, as_of, baseline_30, baseline_90
+) -> SpecMetrics:
+    transitions = StatusHistoryReader(repo, _repo_relpath(repo, relpath)).transitions(spec_id)
+    events = run_store.events_for(spec_id)
+    turnover_30 = turnover.turnover(spec_id, window_days=30, as_of=as_of)
+    turnover_90 = turnover.turnover(spec_id, window_days=90, as_of=as_of)
+    return SpecMetrics(
+        spec_id=spec_id,
+        cycle_time_seconds=cycle_time_seconds(transitions),
+        first_run_pass_rate=first_run_pass_rate(events),
+        iterations_to_green=iterations_to_green(events),
+        turnover_30d=turnover_30,
+        turnover_90d=turnover_90,
+        turnover_ratio_30d=turnover_ratio(turnover_30, baseline_30),
+        turnover_ratio_90d=turnover_ratio(turnover_90, baseline_90),
+        commits=sum(1 for c in commits if spec_id in c.spec_trailers),
+    )
+
+
+def _repo_relpath(repo: Path, relpath: str) -> str:
+    """The spec path as git wants it: relative to the repo root, forward slashes."""
+    try:
+        return Path(relpath).resolve().relative_to(repo.resolve()).as_posix()
+    except ValueError:
+        return relpath
+
+
+def _emit_metrics_json(snapshot: SprintSnapshot, series: int) -> None:
+    payload = {
+        "sprint": snapshot.sprint,
+        "series": series,
+        "specs": [
+            {
+                "spec": s.spec_id,
+                "cycle_time_seconds": s.cycle_time_seconds,
+                "first_run_pass_rate": s.first_run_pass_rate,
+                "iterations_to_green": s.iterations_to_green,
+                "turnover_30d": s.turnover_30d,
+                "turnover_90d": s.turnover_90d,
+                "turnover_ratio_30d": s.turnover_ratio_30d,
+                "turnover_ratio_90d": s.turnover_ratio_90d,
+                "commits": s.commits,
+            }
+            for s in snapshot.specs
+        ],
+        "hygiene": [
+            {"spec": h.spec_id, "kind": h.kind, "detail": h.detail} for h in snapshot.hygiene
+        ],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+
+
+def _render_metrics(snapshot: SprintSnapshot, series: int) -> None:
+    table = Table(title=f"Métricas — sprint {snapshot.sprint} (série {series})")
+    table.add_column("Spec")
+    table.add_column("Cycle time")
+    table.add_column("First-run")
+    table.add_column("Iter→verde")
+    table.add_column("Turnover 30d")
+    table.add_column("Commits")
+    for s in snapshot.specs:
+        table.add_row(
+            s.spec_id,
+            _fmt_seconds(s.cycle_time_seconds),
+            _fmt_pct(s.first_run_pass_rate),
+            "—" if s.iterations_to_green is None else str(s.iterations_to_green),
+            "—" if s.turnover_30d is None else f"{s.turnover_30d:.2f}",
+            str(s.commits),
+        )
+    console.print(table)
+    report = hygiene_report(snapshot.hygiene)
+    if report:
+        console.print("Higiene (test-tampering):", markup=False, style="yellow")
+        for spec_id, signals in report.items():
+            for signal in signals:
+                console.print(f"  ⚠ {spec_id}: {signal.kind} — {signal.detail}", markup=False)
+
+
+def _fmt_seconds(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{value / 3600:.1f}h"
+
+
+def _fmt_pct(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{value * 100:.0f}%"
 
 
 @connect_app.command("db")

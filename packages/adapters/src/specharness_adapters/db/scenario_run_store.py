@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from specharness_core.metrics import ScenarioRunEvent
 from specharness_core.ports.database import DatabaseTarget
 from specharness_core.verify import ScenarioRun
 from sqlalchemy import create_engine, func, select
@@ -50,6 +51,31 @@ class ScenarioRunStore:
                         )
                     )
                 session.commit()
+        finally:
+            engine.dispose()
+
+    def events_for(self, spec_id: str) -> list[ScenarioRunEvent]:
+        """Runs as camada-2 events, carrying `created_at` for execution grouping.
+
+        `all_for` drops the timestamp; the metrics layer needs it to tell one CI
+        execution from the next (iterações até verde, SPEC-013).
+        """
+        engine = create_engine(self._target.sync_url, future=True)
+        try:
+            with Session(engine) as session:
+                rows = session.scalars(
+                    select(ScenarioRunRow)
+                    .where(ScenarioRunRow.spec_id == spec_id)
+                    .order_by(ScenarioRunRow.id)
+                )
+                return [
+                    ScenarioRunEvent(
+                        at=row.created_at,
+                        status=row.status,  # type: ignore[arg-type]
+                        first_run=row.first_run,
+                    )
+                    for row in rows
+                ]
         finally:
             engine.dispose()
 

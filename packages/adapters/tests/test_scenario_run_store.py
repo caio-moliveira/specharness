@@ -49,3 +49,18 @@ def test_a_non_first_run_does_not_set_the_flag(target):
     store.record([ScenarioRun("SPEC-042", "c", "passed", first_run=False)], datetime(2026, 7, 27))
 
     assert store.has_first_run("SPEC-042") is False
+
+
+def test_events_for_carry_timestamp_and_first_run(target):
+    store = ScenarioRunStore(target)
+    store.record(
+        [ScenarioRun("SPEC-042", "c1", "failed", first_run=True)], datetime(2026, 7, 27, 10)
+    )
+    store.record([ScenarioRun("SPEC-042", "c1", "passed")], datetime(2026, 7, 28, 11))
+
+    events = store.events_for("SPEC-042")
+
+    assert [e.status for e in events] == ["failed", "passed"]
+    assert [e.first_run for e in events] == [True, False]
+    assert [e.at for e in events] == [datetime(2026, 7, 27, 10), datetime(2026, 7, 28, 11)]
+    assert store.events_for("SPEC-999") == []
