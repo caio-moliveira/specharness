@@ -11,6 +11,7 @@ from rich.table import Table
 from specharness_adapters.db import RepositoryStore, WorkItemStore, gateway_from_env
 from specharness_adapters.git import LocalGitCommitReader
 from specharness_adapters.github import GitHubClient
+from specharness_adapters.github_issues import GitHubIssuesClient
 from specharness_adapters.llm import check_connection, detect_providers
 from specharness_adapters.redmine import RedmineClient
 from specharness_core import __version__
@@ -79,6 +80,7 @@ def status() -> None:
         ("specharness llm test", "SPEC-005", "disponível"),
         ("specharness connect repo", "SPEC-006", "disponível"),
         ("specharness connect tracker", "SPEC-007", "disponível"),
+        ("specharness connect issues", "SPEC-008", "disponível"),
         ("specharness track", "SPEC-009", "planejado"),
         ("specharness ready <spec>", "SPEC-010/011", "planejado"),
         ("specharness verify", "SPEC-012", "planejado"),
@@ -211,6 +213,48 @@ def connect_tracker() -> None:
         raise typer.Exit(1) from None
 
     console.print(f"✓ Tracker conectado — Redmine · {config.project}", markup=False, soft_wrap=True)
+    console.print(
+        f"  {result.total_items} WorkItems "
+        f"({result.new_items} novos, {result.updated_items} atualizados).",
+        markup=False,
+    )
+    if result.was_noop:
+        console.print("  Nada novo desde o último import.", markup=False)
+
+
+@connect_app.command("issues")
+def connect_issues() -> None:
+    """Importa issues do GitHub como WorkItems canônicos (SPEC-008).
+
+    Reusa a conexão da SPEC-006: o repositório vem do remote do git local e a
+    credencial de GITHUB_TOKEN. O import é idempotente e captura fechamentos:
+    uma issue fechada no GitHub vira estado `closed` no próximo sync.
+    """
+    reader = LocalGitCommitReader(Path.cwd())
+    try:
+        ref = reader.remote_ref()
+    except RepositoryError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    if not os.environ.get(GITHUB_TOKEN_ENV, "").strip():
+        exc = TrackerAuthenticationFailed.for_tracker(
+            ref.slug, detail=f"{GITHUB_TOKEN_ENV} não definida", key_env=GITHUB_TOKEN_ENV
+        )
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    token = os.environ[GITHUB_TOKEN_ENV].strip()
+
+    try:
+        items = list(GitHubIssuesClient(ref, token).work_items())
+        gateway = gateway_from_env()
+        gateway.migrate()
+        result = WorkItemStore(gateway.target).sync("github", items)
+    except (TrackerError, DatabaseError) as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    console.print(f"✓ Issues importadas — {ref.slug}", markup=False, soft_wrap=True)
     console.print(
         f"  {result.total_items} WorkItems "
         f"({result.new_items} novos, {result.updated_items} atualizados).",
