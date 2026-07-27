@@ -38,6 +38,7 @@ from specharness_adapters.metrics import (
     guard_query,
 )
 from specharness_adapters.redmine import RedmineClient
+from specharness_adapters.report import generate_narrative, write_docx
 from specharness_adapters.verify import StepRegistry, VerifyError, load_steps, run_spec
 from specharness_core import (
     Evaluation,
@@ -54,6 +55,7 @@ from specharness_core import (
     VerifyReport,
     __version__,
     aggregate_perception,
+    build_report,
     content_hash,
     cycle_time_seconds,
     evaluate_readiness,
@@ -63,6 +65,8 @@ from specharness_core import (
     iterations_to_green,
     link_commits,
     parse_spec,
+    render_markdown,
+    report_lines,
     turnover_ratio,
     validate_answers,
 )
@@ -139,7 +143,7 @@ def status() -> None:
         ("specharness verify", "SPEC-012", "disponível"),
         ("specharness metrics <sprint>", "SPEC-013", "disponível"),
         ("specharness survey / perception", "SPEC-014", "disponível"),
-        ("specharness report", "SPEC-015", "planejado"),
+        ("specharness report <sprint>", "SPEC-015", "disponível"),
     ]
     for row in rows:
         table.add_row(*row)
@@ -835,6 +839,92 @@ def _fmt_mean(value: float | None) -> str:
 
 def _fmt_dist(dist) -> str:
     return " · ".join(f"{k}:{v}" for k, v in dist.items())
+
+
+@app.command()
+def report(
+    sprint: str = typer.Argument(..., help="sprint a relatar (ex.: 2026-A4)"),
+    narrative: bool = typer.Option(False, "--narrative", help="inclui narrativa LLM (opcional)"),
+    out: str | None = typer.Option(None, "--out", help="arquivo markdown de saída"),
+    docx: str | None = typer.Option(None, "--docx", help="também exporta um .docx"),
+) -> None:
+    """Gera o relatório de uma sprint: tabular determinístico + narrativa LLM (SPEC-015).
+
+    O conteúdo é montado dos dados brutos (métricas SPEC-013, percepção SPEC-014,
+    vínculos SPEC-009) e sai em markdown. A narrativa é opcional e conferida contra a
+    tabela — número que não existe nos dados é rejeitado e regenerado. Sem LLM, o
+    tabular completo é gerado normalmente (ADR-006).
+    """
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    target = gateway.target
+
+    snapshot = MetricSnapshotStore(target).latest(sprint)
+    cycle_times = (
+        {
+            s.spec_id: s.cycle_time_seconds
+            for s in snapshot.specs
+            if s.cycle_time_seconds is not None
+        }
+        if snapshot is not None
+        else {}
+    )
+    perception_store = PerceptionStore(target)
+    perception = aggregate_perception(
+        sprint,
+        perception_store.samples_for_sprint(sprint),
+        perception_store.skips_for_sprint(sprint),
+        cycle_times,
+    )
+    linking = link_commits(RepositoryStore(target).all_commits(), _load_spec_infos())
+    statuses = _sprint_statuses(sprint)
+
+    report_obj = build_report(sprint, snapshot, perception, linking, statuses)
+    markdown = render_markdown(report_obj)
+    lines = list(report_lines(report_obj))
+
+    if narrative:
+        markdown, lines = _append_narrative(report_obj, markdown, lines)
+
+    if out is not None:
+        Path(out).write_text(markdown + "\n", encoding="utf-8")
+        console.print(f"✓ relatório escrito em {out}", markup=False)
+    else:
+        print(markdown)
+    if docx is not None:
+        write_docx(lines, docx)
+        console.print(f"✓ docx exportado em {docx}", markup=False)
+
+
+def _append_narrative(report_obj, markdown: str, lines: list[str]) -> tuple[str, list[str]]:
+    """Try to add an LLM narrative; keep the tabular report intact if it can't (ADR-006)."""
+    try:
+        client = client_from_env()
+        result = generate_narrative(client.complete, report_obj)
+    except LLMError:
+        err_console.print(
+            "• sem LLM disponível — relatório tabular gerado sem narrativa.", markup=False
+        )
+        return markdown, lines
+    if not result.faithful:
+        err_console.print(
+            f"• narrativa rejeitada (números fora da tabela: {', '.join(result.divergences)}); "
+            "relatório tabular mantido.",
+            markup=False,
+            style="yellow",
+        )
+        return markdown, lines
+    markdown = f"{markdown}\n\n## Narrativa\n\n{result.text}"
+    return markdown, markdown.split("\n")
+
+
+def _sprint_statuses(sprint: str) -> dict[str, str]:
+    """spec_id -> status for the specs planned in a sprint (SPEC-003 registry)."""
+    return {info.spec_id: info.status for info in _load_spec_infos() if info.sprint == sprint}
 
 
 @connect_app.command("db")
