@@ -3,6 +3,7 @@
 Pure Python, no I/O, no framework imports (ADR-001).
 """
 
+from .linking import Link, LinkingResult, SpecInfo, link_commits
 from .specschema import (
     ParsedSpec,
     SpecFrontmatter,
@@ -15,6 +16,10 @@ from .specschema import (
 from .trailers import extract_spec_trailers, valid_spec_trailers
 
 __all__ = [
+    "Link",
+    "LinkingResult",
+    "SpecInfo",
+    "link_commits",
     "ParsedSpec",
     "SpecFrontmatter",
     "SpecParseError",
