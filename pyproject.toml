@@ -49,6 +49,8 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["packages"]
 addopts = "-q"
+# Repo root on the path so tests can import the eval runner (evals/) — SPEC-011.
+pythonpath = ["."]
 
 [tool.pyright]
 include = ["packages/core/src", "packages/metrics/src"]
