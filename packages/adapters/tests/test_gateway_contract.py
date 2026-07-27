@@ -35,10 +35,10 @@ def test_migration_from_scratch_reaches_head(gateway):
     result = gateway.migrate()
 
     assert isinstance(result, MigrationResult)
-    # Head moves as specs add domain tables (0002 repo, 0003 workitems); a
-    # from-scratch migration applies every revision, newest first.
-    assert result.revision == "0003"
-    assert result.applied == ("0003", "0002", "0001")
+    # Head moves as specs add domain tables (0002 repo, 0003 workitems, 0004
+    # readiness); a from-scratch migration applies every revision, newest first.
+    assert result.revision == "0004"
+    assert result.applied == ("0004", "0003", "0002", "0001")
     assert result.was_noop is False
 
 

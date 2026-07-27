@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -72,6 +72,39 @@ class PullRequestCommitRow(Base):
     repo: Mapped[str] = mapped_column(String(255), primary_key=True)
     number: Mapped[int] = mapped_column(Integer, primary_key=True)
     sha: Mapped[str] = mapped_column(String(40), primary_key=True)
+
+
+class ReadinessCacheRow(Base):
+    """A cached LLM Readiness evaluation, keyed by content hash (SPEC-011, critério 5).
+
+    An unchanged spec (same hash) is served from here instead of re-calling the
+    model — the "spec inalterada não é reavaliada" promise (métrica 3).
+    """
+
+    __tablename__ = "readiness_cache"
+
+    content_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    issues: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ReadinessOverrideRow(Base):
+    """An audited Tech Lead override of the gate (SPEC-011, critério 3).
+
+    Append-only: every override is a row with who, when and why, so the audit
+    trail is never overwritten.
+    """
+
+    __tablename__ = "readiness_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    spec_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    author: Mapped[str] = mapped_column(String(255), nullable=False)
+    justification: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class WorkItemRow(Base):

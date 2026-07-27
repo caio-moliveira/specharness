@@ -88,6 +88,16 @@ class LiteLlmClient:
         response = self._invoke(prompt, response_format=schema)
         return schema.model_validate_json(_text_of(response))
 
+    def structured_with_cost(self, prompt: str, schema: type[S]) -> tuple[S, float | None]:
+        """Structured output plus the call's cost (SPEC-011, métrica 3).
+
+        A `ValidationError` from `model_validate_json` propagates so the caller
+        can retry (SPEC-011, métrica 2); an `LLMError` from `_invoke` does not —
+        a transport failure is not a schema failure.
+        """
+        response = self._invoke(prompt, response_format=schema)
+        return schema.model_validate_json(_text_of(response)), _safe_cost(response)
+
     def stream(self, prompt: str) -> Iterator[str]:
         response = self._invoke(prompt, stream=True)
         for chunk in response:
