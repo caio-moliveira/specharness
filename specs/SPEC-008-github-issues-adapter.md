@@ -1,7 +1,7 @@
 ---
 spec: SPEC-008
 title: "Adapter GitHub Issues: import e sincronização de WorkItems"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
