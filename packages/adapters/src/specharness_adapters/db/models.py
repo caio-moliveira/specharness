@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Float, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -104,6 +104,24 @@ class ReadinessOverrideRow(Base):
     spec_id: Mapped[str] = mapped_column(String(32), nullable=False)
     author: Mapped[str] = mapped_column(String(255), nullable=False)
     justification: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ScenarioRunRow(Base):
+    """A recorded BDD scenario run (SPEC-012, critério 2). Append-only audit.
+
+    `first_run` marks the first run in CI after ready — the cleanest signal of
+    the spec+agent pair's quality (ADR-016c). Local runs are informative and are
+    not persisted here.
+    """
+
+    __tablename__ = "scenario_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    spec_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    scenario_title: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    first_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
