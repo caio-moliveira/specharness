@@ -95,6 +95,47 @@ def test_track_is_discoverable_from_help():
     assert "track" in result.output
 
 
+# --- listagem de órfãos (SPEC-017) ------------------------------------------
+
+
+def test_track_orphans_flag_lists_shas(monkeypatch):
+    _fake_store(
+        monkeypatch,
+        [_commit("aaaaaaaaaa1", ("SPEC-042",)), _commit("bbbbbbbbbb2", ())],
+    )
+    _fake_specs(monkeypatch, [SpecInfo("SPEC-042", "in_progress", "2026-A2")])
+
+    result = runner.invoke(app, ["track", "--orphans"])
+
+    assert result.exit_code == 0, result.output
+    assert "commit órfão" in result.output
+    assert "bbbbbbbbbb" in result.output
+
+
+def test_track_without_the_flag_keeps_the_summary_only(monkeypatch):
+    _fake_store(
+        monkeypatch,
+        [_commit("aaaaaaaaaa1", ("SPEC-042",)), _commit("bbbbbbbbbb2", ())],
+    )
+    _fake_specs(monkeypatch, [SpecInfo("SPEC-042", "in_progress", "2026-A2")])
+
+    result = runner.invoke(app, ["track"])
+
+    assert "1 commits órfãos" in result.output
+    assert "commit órfão (sem trailer" not in result.output
+
+
+def test_orphans_respects_the_limit(monkeypatch):
+    _fake_store(monkeypatch, [_commit(f"orfao{i:06d}xyz", ()) for i in range(5)])
+    _fake_specs(monkeypatch, [])
+
+    result = runner.invoke(app, ["track", "--orphans", "--limit", "2"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.count("commit órfão (sem trailer") == 2
+    assert "e 3 outro(s)" in result.output
+
+
 def test_load_spec_infos_reads_the_registry_from_disk(clean_env):
     (clean_env / "specs" / "SPEC-042-x.md").write_text(
         _valid_spec("SPEC-042", "in_progress"), "utf-8"
