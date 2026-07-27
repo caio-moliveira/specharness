@@ -3,7 +3,15 @@
 Pure Python, no I/O, no framework imports (ADR-001).
 """
 
+from .gherkin import Feature, Scenario, Step, parse_feature
 from .linking import Link, LinkingResult, SpecInfo, link_commits
+from .readiness import (
+    AMBIGUOUS_TERMS,
+    CoverageRow,
+    Finding,
+    ReadinessReport,
+    evaluate_readiness,
+)
 from .specschema import (
     ParsedSpec,
     SpecFrontmatter,
@@ -16,6 +24,15 @@ from .specschema import (
 from .trailers import extract_spec_trailers, valid_spec_trailers
 
 __all__ = [
+    "AMBIGUOUS_TERMS",
+    "CoverageRow",
+    "Feature",
+    "Finding",
+    "ReadinessReport",
+    "Scenario",
+    "Step",
+    "evaluate_readiness",
+    "parse_feature",
     "Link",
     "LinkingResult",
     "SpecInfo",
