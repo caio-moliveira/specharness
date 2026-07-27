@@ -1,7 +1,7 @@
 ---
 spec: SPEC-006
 title: "Conexão de repositório GitHub: commits, trailers e PRs"
-status: ready
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-25
