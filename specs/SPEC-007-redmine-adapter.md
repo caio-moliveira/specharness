@@ -1,7 +1,7 @@
 ---
 spec: SPEC-007
 title: "Adapter Redmine: import e sincronização de WorkItems"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-25
