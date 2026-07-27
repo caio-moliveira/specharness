@@ -14,12 +14,20 @@ import pytest
 from specharness_core.trailers import extract_spec_trailers
 
 MESSAGES = [
+    # --- casos bem-formados (bloco final é 100% trailers) ---
     "feat: uma coisa\n\nSpec: SPEC-042",
     "feat: duas specs\n\nSpec: SPEC-010\nSpec: SPEC-011",
     "chore: sem trailer nenhum",
     "fix: com corpo\n\nUm parágrafo de corpo explicando.\n\nSpec: SPEC-100",
     "docs: valor mal-formado ainda é trailer\n\nSpec: SPEC-abc",
     "feat: trailer misturado com outros\n\nCo-Authored-By: Ana <a@x>\nSpec: SPEC-007",
+    "feat: pseudo-trailer no bloco\n\nSee: algo\nSpec: SPEC-042",  # See: é trailer-formatado
+    "feat: continuação real\n\nCo-Authored-By: Alguém\n  linha continuada\nSpec: SPEC-042",
+    # --- a classe de divergência que o parser antigo escondia (git=∅) ---
+    "fix: corpo grudado no trailer\n\nUma linha de corpo.\nSpec: SPEC-042",  # corpo no bloco final
+    "feat: corpo depois do trailer\n\nSpec: SPEC-042\nmais corpo aqui",  # não-trailer após trailer
+    "Spec: SPEC-042",  # subject-only: git não vê bloco de trailer
+    "feat: continuação sem trailer antes\n\n  continuação solta\nSpec: SPEC-042",
 ]
 
 

@@ -101,6 +101,15 @@ def test_multiple_trailers_create_multiple_links():
     assert {link.spec_id for link in result.valid_links} == {"SPEC-010", "SPEC-011"}
 
 
+def test_valid_and_invalid_trailers_in_the_same_commit_are_both_recorded():
+    result = link_commits([_commit("a", ("SPEC-042", "SPEC-999"))], [_spec("SPEC-042")])
+
+    assert len(result.valid_links) == 1
+    assert len(result.invalid_links) == 1
+    assert result.valid_links[0].spec_id == "SPEC-042"
+    assert result.invalid_links[0].spec_id == "SPEC-999"
+
+
 # --- higiene ---------------------------------------------------------------
 
 
