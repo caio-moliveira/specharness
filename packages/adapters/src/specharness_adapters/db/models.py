@@ -72,3 +72,25 @@ class PullRequestCommitRow(Base):
     repo: Mapped[str] = mapped_column(String(255), primary_key=True)
     number: Mapped[int] = mapped_column(Integer, primary_key=True)
     sha: Mapped[str] = mapped_column(String(40), primary_key=True)
+
+
+class WorkItemRow(Base):
+    """A canonical WorkItem imported from a tracker (SPEC-007, ADR-007).
+
+    Keyed by `ref` (`origin:kind:external_id`) so an issue and a version that
+    happen to share a numeric id never collide. Re-importing the same item
+    updates it in place (status changes — métrica 3) instead of duplicating.
+    `extras` holds every tracker field without a canonical home, never discarded.
+    """
+
+    __tablename__ = "work_items"
+
+    ref: Mapped[str] = mapped_column(String(320), primary_key=True)
+    origin: Mapped[str] = mapped_column(String(64), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(128), nullable=False)
+    sprint: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extras: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
