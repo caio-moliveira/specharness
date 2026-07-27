@@ -36,10 +36,10 @@ def test_migration_from_scratch_reaches_head(gateway):
 
     assert isinstance(result, MigrationResult)
     # Head moves as specs add domain tables (0002 repo, 0003 workitems, 0004
-    # readiness, 0005 scenario_runs, 0006 metric_snapshots); a from-scratch
-    # migration applies every revision, newest first.
-    assert result.revision == "0006"
-    assert result.applied == ("0006", "0005", "0004", "0003", "0002", "0001")
+    # readiness, 0005 scenario_runs, 0006 metric_snapshots, 0007 perception); a
+    # from-scratch migration applies every revision, newest first.
+    assert result.revision == "0007"
+    assert result.applied == ("0007", "0006", "0005", "0004", "0003", "0002", "0001")
     assert result.was_noop is False
 
 
