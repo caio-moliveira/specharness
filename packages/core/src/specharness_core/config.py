@@ -59,3 +59,44 @@ def load_routing(text: str) -> RoutingConfig:
         return RoutingConfig.model_validate(section)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
+
+
+class TrackerConfig(BaseModel):
+    """Tracker connection + status mapping (SPEC-007, ADR-007).
+
+    `url` and `project` locate the Redmine instance; `status_map` maps a spec
+    status (e.g. `done`) to the Redmine status name to write back, because each
+    Redmine workflow is per-instance. No secret here — the API key comes from
+    the environment only (`REDMINE_API_KEY`); `extra="forbid"` catches a stray
+    key pasted into the file.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    url: str | None = None
+    project: str | None = None
+    status_map: dict[str, str] = Field(default_factory=dict)
+
+
+def load_tracker(text: str) -> TrackerConfig:
+    """Parse tracker config from `specharness.yaml` text, or raise `ConfigError`.
+
+    The tracker config lives under a `tracker:` key (so it coexists with `llm:`
+    in one file). No `tracker:` key means "not configured" — an empty config the
+    caller can report on, not an error.
+    """
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"{CONFIG_FILENAME} inválido: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{CONFIG_FILENAME} deve ser um mapa YAML")
+    section = raw.get("tracker")
+    if section is None:
+        return TrackerConfig()
+    if not isinstance(section, dict):
+        raise ConfigError("a seção 'tracker' de specharness.yaml deve ser um mapa YAML")
+    try:
+        return TrackerConfig.model_validate(section)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
