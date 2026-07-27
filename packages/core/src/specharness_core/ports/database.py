@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Protocol, runtime_checkable
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 DATABASE_URL_ENV = "SPECHARNESS_DATABASE_URL"
 
@@ -140,27 +140,61 @@ class DatabaseGateway(Protocol):
         ...
 
 
-def redact_password(url: str) -> str:
-    """Return `url` with the password removed.
+#: Query parameters that libpq/psycopg/asyncpg read as a password. A URL can
+#: carry the secret here instead of (or on top of) the userinfo, and it must not
+#: survive into a user-facing error either (SPEC-004, critério 6).
+_SECRET_QUERY_KEYS = frozenset({"password", "passwd", "pwd", "sslpassword"})
 
-    Defensive by construction: the redacted URL is rebuilt from parsed parts,
-    so neither the plain nor the percent-encoded secret can survive. A URL we
-    cannot parse never raises — redaction is a safety net, and a safety net
-    that throws is worse than none.
+
+def _redact_query_password(query: str) -> tuple[str, bool]:
+    """Redact known password parameters in a query string.
+
+    Returns the (possibly rewritten) query and whether anything was redacted.
+    With no secret key present the original string is returned verbatim, so a
+    URL without a query-string password is left byte-for-byte unchanged.
+    """
+    if not query:
+        return query, False
+    pairs = parse_qsl(query, keep_blank_values=True)
+    if not any(key.lower() in _SECRET_QUERY_KEYS for key, _ in pairs):
+        return query, False
+    redacted = [
+        (key, _REDACTED if key.lower() in _SECRET_QUERY_KEYS else value) for key, value in pairs
+    ]
+    return urlencode(redacted, safe="*"), True
+
+
+def redact_password(url: str) -> str:
+    """Return `url` with every password removed.
+
+    Defensive by construction: the redacted URL is rebuilt from parsed parts, so
+    neither the plain nor the percent-encoded secret can survive — whether the
+    password sits in the userinfo (`user:senha@host`) or in a connection
+    parameter (`?password=senha`), both of which libpq accepts. A URL we cannot
+    parse never raises — redaction is a safety net, and a safety net that throws
+    is worse than none.
     """
     try:
         parts = urlsplit(url)
         password = parts.password
     except ValueError:
         return "<url ilegível>"
-    if not password:
+
+    query, query_had_secret = _redact_query_password(parts.query)
+    if not password and not query_had_secret:
         return url
 
-    userinfo = f"{parts.username}:{_REDACTED}" if parts.username else _REDACTED
-    host = parts.hostname or ""
-    if parts.port:
-        host = f"{host}:{parts.port}"
-    return urlunsplit((parts.scheme, f"{userinfo}@{host}", parts.path, parts.query, parts.fragment))
+    if password:
+        userinfo = f"{parts.username}:{_REDACTED}" if parts.username else _REDACTED
+        host = parts.hostname or ""
+        if ":" in host:  # IPv6 literal — urlsplit drops the brackets; re-add them.
+            host = f"[{host}]"
+        if parts.port:
+            host = f"{host}:{parts.port}"
+        netloc = f"{userinfo}@{host}"
+    else:
+        netloc = parts.netloc
+    return urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment))
 
 
 def default_sqlite_path(project_root: str | PurePath) -> PurePath:

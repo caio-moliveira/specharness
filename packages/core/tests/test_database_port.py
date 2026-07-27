@@ -192,6 +192,54 @@ def test_redact_password_handles_passwords_that_encode_differently(secret):
     assert quote(secret, safe="") not in safe
 
 
+@pytest.mark.parametrize("key", ["password", "passwd", "pwd", "sslpassword", "PASSWORD"])
+def test_redact_password_removes_a_password_carried_in_the_query_string(key):
+    """libpq aceita a senha como parâmetro de conexão; ela também não pode vazar.
+
+    Regressão (critério 6): `redact_password` só cobria o userinfo, e uma URL
+    `?password=...` chegava inteira à mensagem de erro do usuário.
+    """
+    url = f"postgresql://joao@host:5432/db?{key}=s3nh4-secreta&connect_timeout=2"
+    safe = redact_password(url)
+
+    assert "s3nh4-secreta" not in safe
+    assert "connect_timeout=2" in safe  # o resto da query sobrevive
+    assert "host" in safe
+
+
+def test_redact_password_removes_query_password_without_userinfo():
+    """O vetor exato reportado na verificação: senha só na query, sem userinfo."""
+    url = "postgresql://joao@127.0.0.1:1/specharness?password=s3nh4-secreta"
+    safe = redact_password(url)
+
+    assert "s3nh4-secreta" not in safe
+    assert "127.0.0.1" in safe
+
+
+def test_redact_password_removes_both_userinfo_and_query_passwords():
+    url = "postgresql://joao:userinfopass@host:5432/db?sslpassword=queryp4ss"
+    safe = redact_password(url)
+
+    assert "userinfopass" not in safe
+    assert "queryp4ss" not in safe
+
+
+def test_redact_password_leaves_a_query_without_secrets_untouched():
+    url = "postgresql://joao:senha@host:5432/db?connect_timeout=2&sslmode=require"
+    safe = redact_password(url)
+
+    assert "senha" not in safe
+    assert safe.endswith("?connect_timeout=2&sslmode=require")
+
+
+def test_redact_password_keeps_ipv6_brackets():
+    """Colchetes de literal IPv6 são reconstruídos: URL redigida continua válida."""
+    safe = redact_password("postgresql://joao:senha@[::1]:5432/db")
+
+    assert "senha" not in safe
+    assert "[::1]:5432" in safe
+
+
 def test_redact_password_is_a_noop_when_there_is_no_password():
     assert redact_password("sqlite:////srv/x/.specharness/specharness.db") == (
         "sqlite:////srv/x/.specharness/specharness.db"

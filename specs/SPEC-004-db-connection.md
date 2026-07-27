@@ -149,6 +149,17 @@ senha deixaria passar `p%40ss` quando a senha é `p@ss`. Testado com senhas que
 codificam diferente. A função também não levanta para entrada inparseável:
 uma rede de segurança que estoura é pior do que nenhuma.
 
+A redação cobre **dois** portadores de senha, não um: o userinfo
+(`user:senha@host`) e os parâmetros de conexão que o libpq lê como senha
+(`?password=`, `sslpassword`, e apelidos). A verificação independente (ADR-016)
+achou que a versão original só cobria o userinfo — uma URL de Postgres
+gerenciado com `?password=...` vazava o segredo inteiro na mensagem de erro,
+violando o critério 6. Corrigido reconstruindo também a query com os
+parâmetros de senha redigidos, travado por teste de unidade (cada chave de
+senha) e por teste ponta a ponta pelo gateway. Colchetes de literal IPv6 na
+URL redigida também passaram a ser reconstruídos, para que a URL exibida
+continue válida.
+
 **D3 — `sqlite://` explícito é aceito, embora nenhum critério exija.**
 Rejeitar uma URL SQLite válida seria surpreendente, e é o mesmo dialeto que a
 ferramenta já fala. Custa três linhas e tem teste. `is_default` fica `False`:

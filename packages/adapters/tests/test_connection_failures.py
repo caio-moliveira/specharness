@@ -95,6 +95,26 @@ def test_the_whole_exception_chain_is_free_of_the_password(refused_error):
     assert seen >= 2, "esperava a exceção original encadeada como causa"
 
 
+def test_a_query_string_password_never_reaches_the_message(tmp_path):
+    """Critério 6 pelo outro vetor: a senha vem em `?password=`, não no userinfo.
+
+    libpq aceita a senha como parâmetro de conexão; um usuário de Postgres
+    gerenciado a cola assim com frequência. Ela tem que sumir do erro tanto
+    quanto a do userinfo — a redação só do userinfo deixava esta passar.
+    """
+    secret = "qp4ram-secreta"
+    url = f"postgresql://joao@127.0.0.1:1/specharness?password={secret}&connect_timeout=2"
+    gateway = gateway_from_env(env={DATABASE_URL_ENV: url}, project_root=tmp_path)
+
+    with pytest.raises(ConnectionRefused) as exc:
+        gateway.healthcheck()
+
+    error: BaseException | None = exc.value
+    while error is not None:
+        assert secret not in str(error), f"senha vazou em {type(error).__name__}"
+        error = error.__cause__
+
+
 # --- URL inválida rejeitada antes de qualquer I/O (critério 5) -------------
 
 

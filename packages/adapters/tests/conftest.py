@@ -48,11 +48,3 @@ def gateway(request, tmp_path) -> SqlAlchemyDatabaseGateway:
         target = resolve_database_target({DATABASE_URL_ENV: url}, project_root=tmp_path)
         _wipe_postgres(target.sync_url)
     return SqlAlchemyDatabaseGateway(target)
-
-
-@pytest.fixture
-def postgres_url() -> str:
-    url = os.environ.get(POSTGRES_URL_ENV, "").strip()
-    if not url:
-        pytest.skip(f"{POSTGRES_URL_ENV} não definida — backend Postgres indisponível")
-    return url
