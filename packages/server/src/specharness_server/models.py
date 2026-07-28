@@ -44,12 +44,16 @@ class BigPicture(BaseModel):
     metrics: list[SprintMetricRow]
     hygiene: Hygiene
     perception: PerceptionSummary
+    data_source: str = "live"  # live | demo — a UI avisa quando é demo (SPEC-018)
 
 
 class PipelineStage(BaseModel):
     stage: str
     status: str  # done | pending | unavailable
-    detail: str
+    detail: str  # fallback pt-BR; a UI prefere detail_key + count/value (SPEC-018)
+    detail_key: str = ""
+    detail_count: int | None = None
+    detail_value: str | None = None
 
 
 class SpecPipeline(BaseModel):

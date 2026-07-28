@@ -87,12 +87,16 @@ test-integrity base="main":
 evals:
     uv run python -m evals.runner
 
-# Carrega seed data para o dashboard rodar sem conexões externas (SPEC-016)
+# Carrega seed data no banco demo dedicado (.specharness/demo.db — SPEC-016/018)
 seed:
     uv run python -m specharness_server.seed
 
-# Sobe o server de desenvolvimento (com seed data já carregado)
+# Sobe o server em modo demo: seed + banco demo + aviso na UI (SPEC-018, ADR-019)
 dev: seed
+    SPECHARNESS_DEMO=1 uv run uvicorn specharness_server.app:app --reload --port 8321
+
+# Sobe o server servindo os DADOS REAIS do projeto (sem seed, sem aviso de demo)
+serve:
     uv run uvicorn specharness_server.app:app --reload --port 8321
 
 # Conecta e migra o banco. Mesmo caminho de código que o usuário roda (SPEC-004):
