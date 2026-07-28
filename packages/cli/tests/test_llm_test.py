@@ -200,7 +200,12 @@ def test_llm_is_discoverable_from_the_root_help():
     assert "llm" in result.output
 
 
-def test_llm_test_has_its_own_help():
+def test_llm_test_has_its_own_help(monkeypatch):
+    # No CI o typer/rich renderiza o help com ANSI + quebra de linha e o
+    # substring cru não casa; sem cor e com terminal largo o texto é estável.
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("TERM", "dumb")
+    monkeypatch.setenv("COLUMNS", "200")
     result = runner.invoke(app, ["llm", "test", "--help"])
 
     assert result.exit_code == 0
