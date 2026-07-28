@@ -1,7 +1,7 @@
 ---
 spec: SPEC-019
 title: "Adapter Jira: import e sincronização de WorkItems"
-status: draft
+status: approved
 type: feature
 owner: caio
 created: 2026-07-28
