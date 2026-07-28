@@ -25,6 +25,7 @@ from specharness_adapters.db import (
 from specharness_adapters.git import LocalGitCommitReader
 from specharness_adapters.github import GitHubClient
 from specharness_adapters.github_issues import GitHubIssuesClient
+from specharness_adapters.jira import JiraClient
 from specharness_adapters.llm import (
     EVALUATION_TIMEOUT_S,
     PROMPT_VERSION,
@@ -76,9 +77,11 @@ from specharness_core import (
 from specharness_core.config import (
     CONFIG_FILENAME,
     ConfigError,
+    JiraConfig,
     ReadinessConfig,
     RoutingConfig,
     TrackerConfig,
+    load_jira,
     load_readiness,
     load_routing,
     load_tracker,
@@ -91,6 +94,9 @@ from specharness_core.ports.repository import (
     RepositoryError,
 )
 from specharness_core.ports.tracker import (
+    JIRA_EMAIL_ENV,
+    JIRA_TOKEN_ENV,
+    JIRA_URL_ENV,
     REDMINE_API_KEY_ENV,
     InvalidTrackerConfig,
     TrackerAuthenticationFailed,
@@ -162,6 +168,7 @@ def status() -> None:
         ("specharness connect repo", "SPEC-006", "disponível"),
         ("specharness connect tracker", "SPEC-007", "disponível"),
         ("specharness connect issues", "SPEC-008", "disponível"),
+        ("specharness connect jira", "SPEC-019", "disponível"),
         ("specharness track", "SPEC-009", "disponível"),
         ("specharness ready <spec>", "SPEC-010/011", "disponível"),
         ("specharness verify", "SPEC-012", "disponível"),
@@ -1192,6 +1199,61 @@ def connect_tracker() -> None:
         console.print("  Nada novo desde o último import.", markup=False)
 
 
+@connect_app.command("jira")
+def connect_jira() -> None:
+    """Importa epics, stories e tasks do Jira como WorkItems canônicos (SPEC-019).
+
+    Lê o projeto de `specharness.yaml` (seção `jira`) e as credenciais de
+    JIRA_URL, JIRA_EMAIL e JIRA_TOKEN (Basic auth do Jira Cloud, REST v3).
+    O import é idempotente pela chave `ref`; o write-back ao Jira se limita a
+    status (ADR-020).
+    """
+    try:
+        config = _load_jira()
+    except ConfigError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    if config is None or not config.project:
+        exc = InvalidTrackerConfig.because(f"defina jira.project em {CONFIG_FILENAME}")
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    url = os.environ.get(JIRA_URL_ENV, "").strip()
+    email = os.environ.get(JIRA_EMAIL_ENV, "").strip()
+    if not url or not email:
+        missing = JIRA_URL_ENV if not url else JIRA_EMAIL_ENV
+        exc = InvalidTrackerConfig.because(f"defina a variável de ambiente {missing}")
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    if not os.environ.get(JIRA_TOKEN_ENV, "").strip():
+        exc = TrackerAuthenticationFailed.for_tracker(
+            url, detail=f"{JIRA_TOKEN_ENV} não definida", key_env=JIRA_TOKEN_ENV
+        )
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+    token = os.environ[JIRA_TOKEN_ENV].strip()
+
+    try:
+        client = JiraClient(url, email, token, config.project)
+        items = list(client.work_items())
+        gateway = gateway_from_env()
+        gateway.migrate()
+        result = WorkItemStore(gateway.target).sync(client.origin, items)
+    except (TrackerError, DatabaseError) as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    console.print(f"✓ Tracker conectado — Jira · {config.project}", markup=False, soft_wrap=True)
+    console.print(
+        f"  {result.total_items} WorkItems "
+        f"({result.new_items} novos, {result.updated_items} atualizados).",
+        markup=False,
+    )
+    if result.was_noop:
+        console.print("  Nada novo desde o último import.", markup=False)
+
+
 @connect_app.command("issues")
 def connect_issues() -> None:
     """Importa issues do GitHub como WorkItems canônicos (SPEC-008).
@@ -1294,6 +1356,14 @@ def _load_tracker() -> TrackerConfig | None:
     if not path.is_file():
         return None
     return load_tracker(path.read_text(encoding="utf-8"))
+
+
+def _load_jira() -> JiraConfig | None:
+    """Read the jira section of specharness.yaml from the repo root, if present."""
+    path = Path.cwd() / CONFIG_FILENAME
+    if not path.is_file():
+        return None
+    return load_jira(path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -102,6 +102,45 @@ def load_tracker(text: str) -> TrackerConfig:
         raise ConfigError(str(exc)) from exc
 
 
+class JiraConfig(BaseModel):
+    """Jira project scope + status mapping (SPEC-019, ADR-020).
+
+    `project` is the Jira project key to import (e.g. `KAN`); `status_map` maps
+    a spec status to the Jira status name to write back, because each Jira has
+    its own workflow. No secret and no URL here — `JIRA_URL`, `JIRA_EMAIL` and
+    `JIRA_TOKEN` come from the environment only; `extra="forbid"` catches a
+    stray credential pasted into the file.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    project: str | None = None
+    status_map: dict[str, str] = Field(default_factory=dict)
+
+
+def load_jira(text: str) -> JiraConfig:
+    """Parse Jira config from `specharness.yaml` text, or raise `ConfigError`.
+
+    Mirrors `load_tracker`: the config lives under a `jira:` key; no key means
+    "not configured", an empty config the caller can report on.
+    """
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"{CONFIG_FILENAME} inválido: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{CONFIG_FILENAME} deve ser um mapa YAML")
+    section = raw.get("jira")
+    if section is None:
+        return JiraConfig()
+    if not isinstance(section, dict):
+        raise ConfigError("a seção 'jira' de specharness.yaml deve ser um mapa YAML")
+    try:
+        return JiraConfig.model_validate(section)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
 class ReadinessConfig(BaseModel):
     """Readiness Gate LLM layer settings (SPEC-011).
 

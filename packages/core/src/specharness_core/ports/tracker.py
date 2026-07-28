@@ -18,6 +18,12 @@ from typing import Any, Protocol, runtime_checkable
 #: The Redmine API key is read from the environment, never from a config file.
 REDMINE_API_KEY_ENV = "REDMINE_API_KEY"
 
+#: Jira Cloud credentials (SPEC-019): Basic auth e-mail+token, tudo do
+#: ambiente. Só os *nomes* das variáveis vivem no código/config.
+JIRA_URL_ENV = "JIRA_URL"
+JIRA_EMAIL_ENV = "JIRA_EMAIL"
+JIRA_TOKEN_ENV = "JIRA_TOKEN"
+
 
 class TrackerError(Exception):
     """Base of every tracker failure the user can act on."""
