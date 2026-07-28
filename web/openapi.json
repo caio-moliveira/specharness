@@ -34,7 +34,7 @@
           "dashboard"
         ],
         "summary": "Get Big Picture",
-        "description": "Big picture: fase, specs por status, m\u00e9tricas da sprint e higiene (SPEC-016).",
+        "description": "Big picture: fase, specs por status, m\u00e9tricas da sprint e higiene (SPEC-016).\n\nEm modo demo a sprint default \u00e9 a do seed \u2014 o registry em disco escolheria a\nsprint real do projeto e as m\u00e9tricas demo sumiriam (SPEC-018).",
         "operationId": "get_big_picture_api_big_picture_get",
         "parameters": [
           {
@@ -160,6 +160,11 @@
           },
           "perception": {
             "$ref": "#/components/schemas/PerceptionSummary"
+          },
+          "data_source": {
+            "type": "string",
+            "title": "Data Source",
+            "default": "live"
           }
         },
         "type": "object",
@@ -259,6 +264,33 @@
           "detail": {
             "type": "string",
             "title": "Detail"
+          },
+          "detail_key": {
+            "type": "string",
+            "title": "Detail Key",
+            "default": ""
+          },
+          "detail_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail Count"
+          },
+          "detail_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail Value"
           }
         },
         "type": "object",

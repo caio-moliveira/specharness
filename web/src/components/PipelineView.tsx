@@ -11,6 +11,14 @@ const dotClass = (status: string) =>
       ? "bg-provenance"
       : "bg-readiness-mid";
 
+const stageKey: Record<string, string> = {
+  readiness: "stageReadiness",
+  commits: "stageCommits",
+  bdd: "stageBdd",
+  review: "stageReview",
+  perception: "stagePerception",
+};
+
 export function PipelineView({ specId, onBack }: { specId: string; onBack: () => void }) {
   const { t } = useTranslation();
   const [data, setData] = useState<SpecPipeline | null>(null);
@@ -40,8 +48,16 @@ export function PipelineView({ specId, onBack }: { specId: string; onBack: () =>
             <li key={stage.stage} className="flex items-start gap-3">
               <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${dotClass(stage.status)}`} />
               <div>
-                <div className="font-semibold">{stage.stage}</div>
-                <div className="text-sm text-muted-foreground">{stage.detail}</div>
+                <div className="font-semibold">{t(stageKey[stage.stage] ?? stage.stage)}</div>
+                <div className="text-sm text-muted-foreground">
+                  {stage.detail_key
+                    ? t(stage.detail_key, {
+                        count: stage.detail_count ?? undefined,
+                        value: stage.detail_value ?? undefined,
+                        defaultValue: stage.detail,
+                      })
+                    : stage.detail}
+                </div>
               </div>
             </li>
           ))}

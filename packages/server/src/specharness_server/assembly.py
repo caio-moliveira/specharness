@@ -66,7 +66,12 @@ def current_sprint(infos: list[SpecInfo]) -> str | None:
     return sprints[-1] if sprints else None
 
 
-def big_picture(target: DatabaseTarget, specs_dir: Path, sprint: str | None = None) -> BigPicture:
+def big_picture(
+    target: DatabaseTarget,
+    specs_dir: Path,
+    sprint: str | None = None,
+    data_source: str = "live",
+) -> BigPicture:
     infos = load_spec_infos(specs_dir)
     chosen = sprint or current_sprint(infos)
 
@@ -126,6 +131,7 @@ def big_picture(target: DatabaseTarget, specs_dir: Path, sprint: str | None = No
             aproveitamento_mean=agg.aproveitamento_mean,
             perception_gap=agg.perception_gap,
         ),
+        data_source=data_source,
     )
 
 
@@ -148,31 +154,41 @@ def spec_pipeline(target: DatabaseTarget, specs_dir: Path, spec_id: str) -> Spec
         if s.spec_id == spec_id
     ]
 
+    # detail é o fallback pt-BR; detail_key + count/value localizam na UI (SPEC-018)
     stages = [
         PipelineStage(
             stage="readiness",
             status="done" if info.status in _READINESS_DONE else "pending",
             detail=f"status: {info.status}",
+            detail_key="detailSpecStatus",
+            detail_value=info.status,
         ),
         PipelineStage(
             stage="commits",
             status="done" if links else "pending",
             detail=f"{len(links)} commit(s) vinculado(s)",
+            detail_key="detailLinkedCommits",
+            detail_count=len(links),
         ),
         PipelineStage(
             stage="bdd",
             status="done" if green else "pending",
             detail=f"{len(events)} execução(ões) de cenário registrada(s)",
+            detail_key="detailScenarioRuns",
+            detail_count=len(events),
         ),
         PipelineStage(
             stage="review",
             status="unavailable",
             detail="ingestão de eventos de review pendente (deferida na SPEC-013)",
+            detail_key="detailReviewPending",
         ),
         PipelineStage(
             stage="perception",
             status="done" if samples else "pending",
             detail=f"{len(samples)} amostra(s) de percepção",
+            detail_key="detailPerceptionSamples",
+            detail_count=len(samples),
         ),
     ]
     return SpecPipeline(spec_id=spec_id, sprint=info.sprint, stages=stages)

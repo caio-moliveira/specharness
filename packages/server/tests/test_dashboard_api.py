@@ -1,4 +1,4 @@
-"""Dashboard API: big picture + pipeline, over seeded data (SPEC-016)."""
+"""Dashboard API: big picture + pipeline, over seeded data (SPEC-016, SPEC-018)."""
 
 from __future__ import annotations
 
@@ -6,13 +6,14 @@ import pytest
 from fastapi.testclient import TestClient
 from specharness_core.ports.database import DATABASE_URL_ENV, resolve_database_target
 from specharness_server.app import app
-from specharness_server.seed import SEED_SPRINT, seed
+from specharness_server.seed import SEED_SPRINT, demo_target, seed
 
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     # isolate the DB and the specs dir so the API reads a known world
     monkeypatch.setenv(DATABASE_URL_ENV, "")
+    monkeypatch.delenv("SPECHARNESS_DEMO", raising=False)
     monkeypatch.chdir(tmp_path)
     specs = tmp_path / "specs"
     specs.mkdir()
@@ -27,7 +28,7 @@ def client(monkeypatch, tmp_path):
     return TestClient(app)
 
 
-def _write_spec(specs_dir, spec_id: str, status: str) -> None:
+def _write_spec(specs_dir, spec_id: str, status: str, sprint: str = SEED_SPRINT) -> None:
     (specs_dir / f"{spec_id}-x.md").write_text(
         "---\n"
         f"spec: {spec_id}\n"
@@ -36,7 +37,7 @@ def _write_spec(specs_dir, spec_id: str, status: str) -> None:
         "type: feature\n"
         "owner: caio\n"
         "created: 2026-07-25\n"
-        f"sprint: {SEED_SPRINT}\n"
+        f"sprint: {sprint}\n"
         'success_metrics: ["m < 1s"]\n'
         'acceptance: ["a"]\n'
         "---\n\n## Contexto\n",
@@ -99,3 +100,61 @@ def test_openapi_documents_the_dashboard_contract(client):
 def test_seed_is_idempotent(client, tmp_path):
     target = resolve_database_target({DATABASE_URL_ENV: ""}, project_root=tmp_path)
     assert seed(target) is False  # already seeded by the fixture
+
+
+# --- modo demo (SPEC-018, ADR-019) ------------------------------------------
+
+
+def test_big_picture_reports_live_data_source(client):
+    body = client.get("/api/big-picture").json()
+
+    assert body["data_source"] == "live"
+
+
+@pytest.fixture
+def demo_client(monkeypatch, tmp_path):
+    # registry real numa sprint real; o modo demo tem de defaultar a sprint do seed
+    monkeypatch.setenv(DATABASE_URL_ENV, "")
+    monkeypatch.chdir(tmp_path)
+    specs = tmp_path / "specs"
+    specs.mkdir()
+    _write_spec(specs, "SPEC-013", "verifying", sprint="2026-A4")
+    monkeypatch.setenv("SPECHARNESS_SPECS_DIR", str(specs))
+    monkeypatch.setenv("SPECHARNESS_DEMO", "1")
+    seed(demo_target())
+    return TestClient(app)
+
+
+def test_demo_mode_serves_the_demo_db_and_flags_it(demo_client):
+    body = demo_client.get("/api/big-picture").json()
+
+    assert body["data_source"] == "demo"
+    assert body["sprint"] == SEED_SPRINT  # não a sprint real do registry
+    assert body["metrics"]  # as métricas do seed aparecem
+    pipeline = demo_client.get("/api/specs/SPEC-013/pipeline").json()
+    assert pipeline["stages"]  # o pipeline também sai do banco demo
+
+
+def test_seed_main_never_touches_the_env_database(monkeypatch, tmp_path):
+    from specharness_server import seed as seed_module
+
+    real = tmp_path / "real.db"
+    monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite:///{real.as_posix()}")
+    monkeypatch.chdir(tmp_path)
+
+    seed_module.main()
+
+    assert (tmp_path / ".specharness" / "demo.db").is_file()
+    assert not real.exists()  # o banco resolvido do ambiente ficou intacto
+
+
+def test_pipeline_stages_carry_translation_keys_and_counts(client):
+    body = client.get("/api/specs/SPEC-013/pipeline").json()
+
+    by_stage = {s["stage"]: s for s in body["stages"]}
+    assert all(s["detail_key"] for s in body["stages"])  # nenhum estágio sem chave
+    assert by_stage["readiness"]["detail_key"] == "detailSpecStatus"
+    assert by_stage["readiness"]["detail_value"] == "verifying"
+    assert by_stage["commits"]["detail_key"] == "detailLinkedCommits"
+    assert by_stage["commits"]["detail_count"] == 1  # commit do seed vinculado
+    assert by_stage["perception"]["detail_count"] == 1  # amostra do seed
