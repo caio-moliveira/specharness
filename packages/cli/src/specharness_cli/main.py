@@ -26,6 +26,7 @@ from specharness_adapters.git import LocalGitCommitReader
 from specharness_adapters.github import GitHubClient
 from specharness_adapters.github_issues import GitHubIssuesClient
 from specharness_adapters.llm import (
+    EVALUATION_TIMEOUT_S,
     PROMPT_VERSION,
     check_connection,
     client_from_env,
@@ -405,7 +406,12 @@ def _evaluate_llm(text: str) -> Evaluation:
     cached = cache.get(key)
     if cached is not None:
         return cached
-    client = client_from_env(os.environ, routing=_load_routing(), task="readiness_gate")
+    client = client_from_env(
+        os.environ,
+        routing=_load_routing(),
+        task="readiness_gate",
+        timeout_s=EVALUATION_TIMEOUT_S,
+    )
     evaluation = evaluate_spec(text, client)
     cache.put(key, evaluation, datetime.now())
     return evaluation
@@ -1031,7 +1037,7 @@ def report(
 def _append_narrative(report_obj, markdown: str, lines: list[str]) -> tuple[str, list[str]]:
     """Try to add an LLM narrative; keep the tabular report intact if it can't (ADR-006)."""
     try:
-        client = client_from_env()
+        client = client_from_env(timeout_s=EVALUATION_TIMEOUT_S)
         result = generate_narrative(client.complete, report_obj)
     except LLMError:
         err_console.print(
