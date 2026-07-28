@@ -94,7 +94,15 @@ def seed(target: DatabaseTarget, *, at: datetime | None = None) -> bool:
 
 
 def main() -> None:  # pragma: no cover - thin CLI wrapper over seed()
+    import sys
+
     from specharness_adapters.db import gateway_from_env
+
+    # Consoles Windows padrão usam cp1252: sem isto o ✓ abaixo estoura
+    # UnicodeEncodeError (mesmo guard da CLI e dos scripts do repo).
+    encoding = (getattr(sys.stdout, "encoding", "") or "").replace("-", "").lower()
+    if encoding != "utf8" and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     seeded = seed(gateway_from_env().target)
     print("✓ seed data carregado." if seeded else "• banco já tinha seed — nada a fazer.")
