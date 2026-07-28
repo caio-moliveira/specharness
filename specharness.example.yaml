@@ -12,3 +12,11 @@ llm:
 
   # Tentado quando a chamada principal falha em runtime (degradação — ADR-006).
   fallback: ollama/llama3.2
+
+# Adapter de Jira (SPEC-019). Credenciais NUNCA vão aqui — JIRA_URL,
+# JIRA_EMAIL e JIRA_TOKEN vêm só do ambiente (.env). O status_map traduz o
+# status canônico da spec para o nome de status do SEU workflow no write-back.
+# jira:
+#   project: KAN
+#   status_map:
+#     done: Concluído
