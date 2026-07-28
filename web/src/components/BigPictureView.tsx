@@ -36,6 +36,12 @@ export function BigPictureView({ onOpenSpec }: { onOpenSpec: (specId: string) =>
         </span>
       </div>
 
+      {data.data_source === "demo" && (
+        <p className="rounded-md border border-readiness-mid bg-readiness-mid/10 px-3 py-2 text-sm">
+          {t("demoBanner")}
+        </p>
+      )}
+
       <HygieneAlert hygiene={data.hygiene} />
 
       <section>

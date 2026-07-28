@@ -14,9 +14,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from specharness_adapters.db import gateway_from_env
 from specharness_core import __version__
+from specharness_core.ports.database import DatabaseTarget
 
 from .assembly import big_picture, spec_pipeline
 from .models import BigPicture, SpecPipeline
+from .seed import SEED_SPRINT, demo_target
 
 app = FastAPI(
     title="specharness",
@@ -37,6 +39,15 @@ def _specs_dir() -> Path:
     return Path(os.environ.get("SPECHARNESS_SPECS_DIR", "specs"))
 
 
+def _demo() -> bool:
+    """Modo demo (SPEC-018, ADR-019): `just dev` seta SPECHARNESS_DEMO=1."""
+    return os.environ.get("SPECHARNESS_DEMO", "") in {"1", "true"}
+
+
+def _target() -> DatabaseTarget:
+    return demo_target() if _demo() else gateway_from_env().target
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
@@ -44,14 +55,20 @@ def health() -> dict[str, str]:
 
 @app.get("/api/big-picture", response_model=BigPicture, tags=["dashboard"])
 def get_big_picture(sprint: str | None = None) -> BigPicture:
-    """Big picture: fase, specs por status, métricas da sprint e higiene (SPEC-016)."""
-    return big_picture(gateway_from_env().target, _specs_dir(), sprint)
+    """Big picture: fase, specs por status, métricas da sprint e higiene (SPEC-016).
+
+    Em modo demo a sprint default é a do seed — o registry em disco escolheria a
+    sprint real do projeto e as métricas demo sumiriam (SPEC-018).
+    """
+    if _demo():
+        return big_picture(_target(), _specs_dir(), sprint or SEED_SPRINT, data_source="demo")
+    return big_picture(_target(), _specs_dir(), sprint)
 
 
 @app.get("/api/specs/{spec_id}/pipeline", response_model=SpecPipeline, tags=["dashboard"])
 def get_spec_pipeline(spec_id: str) -> SpecPipeline:
     """Pipeline por spec: readiness → commits → BDD → review → percepção (SPEC-016)."""
-    pipeline = spec_pipeline(gateway_from_env().target, _specs_dir(), spec_id)
+    pipeline = spec_pipeline(_target(), _specs_dir(), spec_id)
     if pipeline is None:
         raise HTTPException(status_code=404, detail=f"spec {spec_id} não encontrada")
     return pipeline

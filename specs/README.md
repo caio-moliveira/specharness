@@ -25,3 +25,4 @@ tempo:
 | 2026-A2 | SPEC-006 repo GitHub · SPEC-009 linking · SPEC-010 gate determinístico |
 | 2026-A3 | SPEC-007 Redmine · SPEC-008 GH Issues · SPEC-011 gate LLM · SPEC-012 verify |
 | 2026-A4 | SPEC-013 métricas · SPEC-014 percepção · SPEC-015 report · SPEC-016 dashboard |
+| 2026-A5 | SPEC-017 veredito/diagnóstico CLI · SPEC-018 modo demo do dashboard |

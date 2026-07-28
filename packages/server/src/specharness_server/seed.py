@@ -1,14 +1,21 @@
-"""Seed data for the read-only dashboard (SPEC-016, acceptance[3]).
+"""Seed data for the read-only dashboard (SPEC-016, acceptance[3]; SPEC-018).
 
 The whole point: a frontend contributor runs the dashboard with no external
 connection. `seed` migrates the database and inserts one representative sprint —
 a metrics snapshot, perception samples and commits — so every view has something
 real to show. It only writes to an empty database, so re-running is safe.
+
+The demo data is isolated by construction (ADR-019): `main()` only ever writes
+to the dedicated demo database (`demo_target()`), never to the database resolved
+from the environment — seeding the user's real database would mix fiction into
+the very numbers this product asks people to trust. The DEMO- sprint label makes
+the origin self-evident anywhere it surfaces.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 from specharness_adapters.db import (
     MetricSnapshotStore,
@@ -17,10 +24,20 @@ from specharness_adapters.db import (
     SqlAlchemyDatabaseGateway,
 )
 from specharness_core import PerceptionSample, SpecMetrics, SprintSnapshot
-from specharness_core.ports.database import DatabaseTarget
+from specharness_core.ports.database import (
+    DATABASE_URL_ENV,
+    DatabaseTarget,
+    resolve_database_target,
+)
 from specharness_core.ports.repository import Commit, PullRequest
 
-SEED_SPRINT = "2026-A4"
+SEED_SPRINT = "DEMO-2026-A1"
+
+
+def demo_target() -> DatabaseTarget:
+    """The dedicated demo database — the seed cannot touch the project one (ADR-019)."""
+    url = f"sqlite:///{(Path.cwd() / '.specharness' / 'demo.db').as_posix()}"
+    return resolve_database_target({DATABASE_URL_ENV: url}, Path.cwd())
 
 
 def seed(target: DatabaseTarget, *, at: datetime | None = None) -> bool:
@@ -96,16 +113,18 @@ def seed(target: DatabaseTarget, *, at: datetime | None = None) -> bool:
 def main() -> None:  # pragma: no cover - thin CLI wrapper over seed()
     import sys
 
-    from specharness_adapters.db import gateway_from_env
-
     # Consoles Windows padrão usam cp1252: sem isto o ✓ abaixo estoura
     # UnicodeEncodeError (mesmo guard da CLI e dos scripts do repo).
     encoding = (getattr(sys.stdout, "encoding", "") or "").replace("-", "").lower()
     if encoding != "utf8" and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    seeded = seed(gateway_from_env().target)
-    print("✓ seed data carregado." if seeded else "• banco já tinha seed — nada a fazer.")
+    seeded = seed(demo_target())
+    print(
+        "✓ seed data carregado em .specharness/demo.db."
+        if seeded
+        else "• o banco demo já tinha seed — nada a fazer."
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover
