@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 from specharness_adapters.db import (
@@ -120,6 +121,10 @@ def _ensure_utf8_console() -> None:
 @app.callback()
 def _main() -> None:
     _ensure_utf8_console()
+    # Onboarding sem fricção (SPEC-004/005): o .env do repo vale para todo
+    # comando, sem `--env-file`. Variáveis já exportadas no shell têm
+    # precedência — o load nunca sobrescreve o ambiente.
+    load_dotenv(Path.cwd() / ".env")
 
 
 connect_app = typer.Typer(
