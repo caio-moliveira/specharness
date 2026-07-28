@@ -27,12 +27,19 @@ def _backends() -> list[str]:
 
 
 def _wipe_postgres(url: str) -> None:
-    """A clean slate: the contract asserts what a from-scratch migration does."""
+    """A clean slate: the contract asserts what a from-scratch migration does.
+
+    The whole schema is recreated, not just the version tables: dropping only
+    schema_meta/alembic_version left the domain tables behind, so the FIRST
+    test to migrate poisoned the database and every later from-scratch
+    migration hit DuplicateTable ("relation commits already exists") — the CI
+    Postgres half was red on main because of exactly this.
+    """
     engine = create_engine(url, future=True)
     try:
         with engine.begin() as connection:
-            connection.execute(text("DROP TABLE IF EXISTS schema_meta"))
-            connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+            connection.execute(text("DROP SCHEMA public CASCADE"))
+            connection.execute(text("CREATE SCHEMA public"))
     finally:
         engine.dispose()
 
