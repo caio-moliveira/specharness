@@ -679,7 +679,7 @@ contribuidores recorrentes.
 - `core`: Spec Registry + schema + parser + ciclo de vida + Readiness Gate
   (determinístico + LLM)
 - Onboarding de conexões: SQLite/Postgres, LLM (provedores + Ollama), GitHub,
-  Redmine + GitHub Issues
+  Redmine + GitHub Issues + Jira (SPEC-019, antecipado da Fase B)
 - `track`: linking por trailer, métricas camadas 1–2 (incluindo turnover
   30/90d), commits/specs órfãos
 - `verify`: cenários Gherkin como gate de CI
@@ -693,7 +693,7 @@ LLM e obtém dashboard com métricas e relatório de sprint em **<15 minutos**.
 ### Fase B — Decisão e Setup
 - Wizards de Discovery (PRD, stack, arquitetura → ADRs automáticos)
 - `harness` com profile Claude Code completo + work packages
-- Importer OpenSpec · Adapter Jira
+- Importer OpenSpec (Adapter Jira entregue na Fase A — SPEC-019, ADR-020)
 - Web: wizards interativos, edição de specs, Agent Analytics (camada 4)
 
 ### Fase C — Ciclo completo
