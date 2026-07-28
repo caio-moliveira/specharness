@@ -157,4 +157,5 @@ def test_pipeline_stages_carry_translation_keys_and_counts(client):
     assert by_stage["readiness"]["detail_value"] == "verifying"
     assert by_stage["commits"]["detail_key"] == "detailLinkedCommits"
     assert by_stage["commits"]["detail_count"] == 1  # commit do seed vinculado
+    assert by_stage["bdd"]["detail_count"] == 0  # sem scenario runs no seed
     assert by_stage["perception"]["detail_count"] == 1  # amostra do seed

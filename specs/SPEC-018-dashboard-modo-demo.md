@@ -1,7 +1,7 @@
 ---
 spec: SPEC-018
 title: "Dashboard: modo demo honesto — seed isolado, origem declarada e pipeline localizado"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-27
