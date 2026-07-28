@@ -5,7 +5,13 @@ package knows how to reach it, validate structured output, price the call and
 translate its failures — and how to probe a local Ollama.
 """
 
-from .client import LiteLlmClient, Ping, check_connection, client_from_env
+from .client import (
+    EVALUATION_TIMEOUT_S,
+    LiteLlmClient,
+    Ping,
+    check_connection,
+    client_from_env,
+)
 from .detect import detect_providers, ollama_responds
 from .errors import classify
 from .gate import PROMPT_VERSION, build_prompt, evaluate_spec
@@ -16,6 +22,7 @@ __all__ = [
     "PROMPT_VERSION",
     "build_prompt",
     "classify",
+    "EVALUATION_TIMEOUT_S",
     "client_from_env",
     "detect_providers",
     "evaluate_spec",

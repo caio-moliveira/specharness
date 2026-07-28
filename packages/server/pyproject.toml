@@ -8,6 +8,7 @@ dependencies = [
     "uvicorn>=0.32",
     "specharness-core",
     "specharness-adapters",
+    "python-dotenv>=1.0",
 ]
 
 [tool.uv.sources]

@@ -1,5 +1,9 @@
 # specharness — task runner unificado (humanos e agentes usam OS MESMOS comandos)
 
+# O .env do repo é a fonte das credenciais de onboarding (SPEC-004/005):
+# carregado aqui e nos entrypoints, para nenhum comando exigir --env-file.
+set dotenv-load := true
+
 default:
     @just --list
 

@@ -40,7 +40,7 @@ DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 #: The product's default model per provider — the zero-config fallback. A
 #: project overrides these per task in `specharness.yaml` (see `config.py`).
 DEFAULT_MODELS: dict[str, str] = {
-    "anthropic": "anthropic/claude-3-5-sonnet-latest",
+    "anthropic": "anthropic/claude-sonnet-4-6",
     "openai": "openai/gpt-4o-mini",
     "azure": "azure/gpt-4o-mini",
     "ollama": "ollama/llama3.2",

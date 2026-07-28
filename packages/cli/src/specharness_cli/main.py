@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 from specharness_adapters.db import (
@@ -25,6 +26,7 @@ from specharness_adapters.git import LocalGitCommitReader
 from specharness_adapters.github import GitHubClient
 from specharness_adapters.github_issues import GitHubIssuesClient
 from specharness_adapters.llm import (
+    EVALUATION_TIMEOUT_S,
     PROMPT_VERSION,
     check_connection,
     client_from_env,
@@ -120,6 +122,10 @@ def _ensure_utf8_console() -> None:
 @app.callback()
 def _main() -> None:
     _ensure_utf8_console()
+    # Onboarding sem fricção (SPEC-004/005): o .env do repo vale para todo
+    # comando, sem `--env-file`. Variáveis já exportadas no shell têm
+    # precedência — o load nunca sobrescreve o ambiente.
+    load_dotenv(Path.cwd() / ".env")
 
 
 connect_app = typer.Typer(
@@ -400,7 +406,12 @@ def _evaluate_llm(text: str) -> Evaluation:
     cached = cache.get(key)
     if cached is not None:
         return cached
-    client = client_from_env(os.environ, routing=_load_routing(), task="readiness_gate")
+    client = client_from_env(
+        os.environ,
+        routing=_load_routing(),
+        task="readiness_gate",
+        timeout_s=EVALUATION_TIMEOUT_S,
+    )
     evaluation = evaluate_spec(text, client)
     cache.put(key, evaluation, datetime.now())
     return evaluation
@@ -1026,7 +1037,7 @@ def report(
 def _append_narrative(report_obj, markdown: str, lines: list[str]) -> tuple[str, list[str]]:
     """Try to add an LLM narrative; keep the tabular report intact if it can't (ADR-006)."""
     try:
-        client = client_from_env()
+        client = client_from_env(timeout_s=EVALUATION_TIMEOUT_S)
         result = generate_narrative(client.complete, report_obj)
     except LLMError:
         err_console.print(

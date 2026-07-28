@@ -32,6 +32,10 @@ CompletionFn = Callable[..., Any]
 #: SPEC-005, métrica 1: `llm test` valida em < 15s por provedor.
 DEFAULT_TIMEOUT_S = 15.0
 
+#: Chamadas que avaliam uma spec inteira com structured output (readiness da
+#: SPEC-011, narrativa da SPEC-015) legitimamente passam dos 15s do ping.
+EVALUATION_TIMEOUT_S = 60.0
+
 _PING_PROMPT = (
     "Isto é um teste de conectividade. Responda um JSON com o campo `ok` "
     "verdadeiro e uma mensagem curta em português no campo `message`."
@@ -151,11 +155,12 @@ def client_from_env(
     task: str | None = None,
     *,
     completion_fn: CompletionFn | None = None,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
 ) -> LiteLlmClient:
     """Build the client the CLI uses: resolve in the core, then reach litellm."""
     resolved = os.environ if env is None else env
     target = resolve_llm_target(resolved, routing=routing, task=task)
-    return LiteLlmClient(target, resolved, completion_fn=completion_fn)
+    return LiteLlmClient(target, resolved, completion_fn=completion_fn, timeout_s=timeout_s)
 
 
 def check_connection(

@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from specharness_adapters.db import gateway_from_env
@@ -19,6 +20,11 @@ from specharness_core.ports.database import DatabaseTarget
 from .assembly import big_picture, spec_pipeline
 from .models import BigPicture, SpecPipeline
 from .seed import SEED_SPRINT, demo_target
+
+# Onboarding sem fricção (SPEC-004/005): o server lê o mesmo .env que o CLI,
+# então `uvicorn specharness_server.app:app` funciona sem --env-file. Variáveis
+# já exportadas no shell têm precedência.
+load_dotenv(Path.cwd() / ".env")
 
 app = FastAPI(
     title="specharness",
