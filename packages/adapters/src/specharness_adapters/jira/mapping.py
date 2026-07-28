@@ -48,7 +48,7 @@ def candidate_sprint(value: Any) -> str | None:
             return str(name) if name else None
     future = [s for s in sprints if s.get("state") == "future"]
     if future:
-        name = max(future, key=lambda s: int(s.get("id", 0))).get("name")
+        name = max(future, key=lambda s: int(s.get("id") or 0)).get("name")
         return str(name) if name else None
     return None
 

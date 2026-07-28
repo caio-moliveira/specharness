@@ -191,7 +191,7 @@ def test_an_external_status_change_shows_up_on_the_next_import():
 # --- cenário 4 (write-back só de status, cassette real) ---------------------
 
 
-def test_update_status_posts_only_a_transition(monkeypatch):
+def test_update_status_posts_only_a_transition():
     fake = FakeJira(transitions=_cassette("transitions_sam1_9.json"))
 
     _client(fake).update_status("SAM1-9", "In Progress")
@@ -261,6 +261,29 @@ def test_a_rate_limited_request_is_retried_after_backoff():
     assert sleeps == [0.2]
 
 
+def test_an_abusive_retry_after_is_capped():
+    seq = iter(
+        [
+            _resp(429, {}, {"Retry-After": "3600"}),
+            _resp(200, {"issues": [], "isLast": True}),
+        ]
+    )
+    sleeps: list = []
+
+    def fetch(method, path, params, json_body):
+        if path == "/rest/api/3/field":
+            return _resp(200, [])
+        return next(seq)
+
+    list(
+        JiraClient(
+            "https://j.ex", "u@e.com", "t", "P", fetch=fetch, sleep=sleeps.append
+        ).work_items()
+    )
+
+    assert sleeps == [30.0]  # backoff limitado, nunca 1h
+
+
 def test_a_persistent_rate_limit_raises_rate_limited():
     with pytest.raises(TrackerRateLimited):
         list(
@@ -288,6 +311,7 @@ def test_importing_300_issues_stays_under_30s():
                 "issuetype": {"name": "Task"},
                 "status": {"name": "To Do"},
                 "labels": ["a", "b"],
+                "customfield_10020": [{"id": 1, "name": "Sprint 1", "state": "active"}],
                 "customfield_10050": {"value": n},
             },
         }
@@ -304,6 +328,7 @@ def test_importing_300_issues_stays_under_30s():
     elapsed = time.perf_counter() - started
 
     assert len(items) == 300
+    assert all(i.sprint == "Sprint 1" for i in items)  # custo do sprint entra na medição
     assert elapsed < 30.0, f"import de 300 issues levou {elapsed:.1f}s"
 
 

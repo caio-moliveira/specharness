@@ -33,6 +33,9 @@ FetchFn = Callable[[str, str, "dict[str, Any] | None", "dict[str, Any] | None"],
 DEFAULT_TIMEOUT_S = 30.0
 _DEFAULT_PAGE_SIZE = 100
 _DEFAULT_MAX_RETRIES = 2
+#: O backoff prometido é limitado: um Retry-After abusivo (ou em formato
+#: HTTP-date) não pode fazer o import dormir uma hora.
+_MAX_BACKOFF_S = 30.0
 
 #: How Jira marks the agile sprint custom field (its id varies per instance).
 _SPRINT_FIELD_SCHEMA = "com.pyxis.greenhopper.jira:gh-sprint"
@@ -103,8 +106,9 @@ class JiraClient:
 
     def work_items(self) -> Iterator[WorkItem]:
         sprint_field = self._sprint_field()
+        project = self._project.replace('"', '\\"')
         params: dict[str, Any] = {
-            "jql": f'project = "{self._project}" ORDER BY created ASC',
+            "jql": f'project = "{project}" ORDER BY created ASC',
             "maxResults": self._page_size,
             "fields": "*all",
         }
@@ -163,6 +167,6 @@ class JiraClient:
 
 def _retry_after(headers: Any) -> float:
     try:
-        return float(headers.get("Retry-After", 1.0))
+        return min(float(headers.get("Retry-After", 1.0)), _MAX_BACKOFF_S)
     except (TypeError, ValueError):
         return 1.0

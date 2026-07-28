@@ -94,6 +94,30 @@ anteriores permanecem intactos.
 - Webhooks de transição; o sync é por comando explícito.
 - Jira Server/Data Center legado; o alvo é Jira Cloud (REST v3).
 
+## Decisões e desvios da implementação
+
+**D1 — O gatilho de write-back ainda não existe no produto.** O
+`StatusWriter` está implementado e testado (transição de workflow, corpo só
+com o id — a fronteira da ADR-020 vale por construção), e `jira.status_map`
+é parseado e validado (`extra="forbid"`). Mas nenhum fluxo do produto chama
+"spec transitou → `target_status` → `update_status`" — o mesmo estado da
+SPEC-007/Redmine, cujo `target_status` genérico vive no core à espera do
+gatilho. Follow-up registrado pela verificação independente: ao wirear, a
+mensagem de erro de `target_status` precisa nomear `jira.status_map` (hoje
+nomeia `tracker.status_map`).
+
+**D2 — Casos de sprint são sintéticos e declarados.** A instância Jira usada
+para gravar as cassettes (projetos team-managed Kanban) não tem agile
+sprints; os cenários de sprint rodam sobre payloads sintéticos no formato do
+campo `gh-sprint`, marcados como tal nos testes. A cassette real cobre o
+caso backlog (sprint nula) com taxonomia real (epics + tasks).
+
+**D3 — Achados menores da verificação aplicados na entrega.** Backoff de 429
+limitado a 30s (um `Retry-After` abusivo não congela o import), chave de
+projeto escapada no JQL, `int(id)` do sprint tolerante a null, sprint
+incluída na medição da métrica 1, e testes unitários dedicados para
+`load_jira` no core.
+
 ## Cenários (BDD)
 
 ```gherkin
