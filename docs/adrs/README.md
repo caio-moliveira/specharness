@@ -24,3 +24,4 @@ registre um novo que o substitua (skill `registrar-adr`).
 | [ADR-017](ADR-017-identidade-visual.md) | Identidade visual "Gate & Evidence" | aceita |
 | [ADR-018](ADR-018-runner-bdd-interno.md) | Runner de BDD interno mínimo, não pytest-bdd, para o verify | aceita |
 | [ADR-019](ADR-019-modo-demo-dashboard.md) | Modo demo do dashboard: banco dedicado, rótulo DEMO e origem declarada | aceita |
+| [ADR-020](ADR-020-fronteira-workitem-tracker-spec-repo.md) | Fronteira WorkItem-no-tracker / Spec-no-repo; comunidade no GitHub Projects, Jira como adapter | aceita |
