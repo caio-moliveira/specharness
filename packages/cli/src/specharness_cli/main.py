@@ -169,12 +169,19 @@ def status() -> None:
 
 
 @app.command()
-def track() -> None:
+def track(
+    orphans: bool = typer.Option(
+        False, "--orphans", help="lista os SHAs dos commits órfãos (sem trailer Spec:)"
+    ),
+    limit: int = typer.Option(20, "--limit", help="máximo de órfãos listados com --orphans"),
+) -> None:
     """Vincula commits a specs pelo trailer e reporta órfãos (SPEC-009).
 
     Lê os commits já ingeridos (SPEC-006) e o registro de specs do disco, e
     calcula a visão pipeline (vínculos válidos) e o relatório de higiene
     (vínculos inválidos, commits órfãos, specs órfãs) a cada execução.
+    Com --orphans, os commits órfãos são listados (SPEC-017) — a parte
+    acionável do relatório, não só a contagem.
     """
     try:
         gateway = gateway_from_env()
@@ -185,7 +192,7 @@ def track() -> None:
         raise typer.Exit(1) from None
 
     result = link_commits(commits, _load_spec_infos())
-    _render_track(result)
+    _render_track(result, orphans=orphans, limit=limit)
 
 
 def _load_spec_infos() -> list[SpecInfo]:
@@ -206,7 +213,7 @@ def _load_spec_infos() -> list[SpecInfo]:
     return infos
 
 
-def _render_track(result) -> None:
+def _render_track(result, *, orphans: bool = False, limit: int = 20) -> None:
     table = Table(title="Pipeline commit → spec")
     table.add_column("Commit")
     table.add_column("Spec")
@@ -221,6 +228,12 @@ def _render_track(result) -> None:
         f"{len(result.orphan_specs)} specs órfãs.",
         markup=False,
     )
+    if orphans:
+        for sha in result.orphan_commits[:limit]:
+            console.print(f"  ⚠ commit órfão (sem trailer Spec:): {sha[:10]}", markup=False)
+        remaining = len(result.orphan_commits) - limit
+        if remaining > 0:
+            console.print(f"  … e {remaining} outro(s) — aumente com --limit.", markup=False)
     for link in result.invalid_links:
         console.print(
             f"  ⚠ vínculo inválido: {link.commit_sha[:10]} → {link.spec_id} (spec inexistente)",
@@ -238,13 +251,15 @@ def ready(
     override: bool = typer.Option(False, "--override", help="registra um override auditado"),
     author: str | None = typer.Option(None, "--author", help="autor do override"),
     reason: str | None = typer.Option(None, "--reason", help="justificativa do override"),
+    json_out: bool = typer.Option(False, "--json", help="saída legível por máquina (JSON)"),
 ) -> None:
     """Roda o Readiness Gate sobre uma spec: piso determinístico + camada LLM.
 
     O piso mecânico (SPEC-010) roda primeiro; a camada LLM (SPEC-011) só avalia o
     que passou. Score abaixo do limiar bloqueia. O Tech Lead pode liberar com
     --override --author X --reason Y — o override é auditado (autor, data,
-    justificativa). Spec inalterada usa cache e não reavalia.
+    justificativa). Spec inalterada usa cache e não reavalia. Todo término
+    fecha com uma linha de veredito — PRONTA ou BLOQUEADA (SPEC-017).
     """
     path = _resolve_spec_path(spec)
     if path is None:
@@ -258,20 +273,41 @@ def ready(
         raise typer.Exit(1) from None
 
     if override:
-        _record_override(parsed.spec_id, author, reason)
+        _record_override(parsed.spec_id, author, reason, quiet=json_out)
+        _finish_ready(json_out, parsed.spec_id, ok=True, reason="override auditado")
         return
 
     report = evaluate_readiness(parsed, _load_registry())
-    _render_readiness(parsed.spec_id, report)
+    if not json_out:
+        _render_readiness(parsed.spec_id, report)
+    floor = {
+        "passed": report.passed,
+        "blockers": [f"[{b.location}] {b.message}" for b in report.blockers],
+    }
     if not report.passed:
+        _finish_ready(
+            json_out,
+            parsed.spec_id,
+            ok=False,
+            reason=f"piso determinístico ({len(report.blockers)} bloqueador(es))",
+            floor=floor,
+        )
         raise typer.Exit(1)
 
     if not detect_providers(os.environ):
-        console.print(
-            "⚠ Camada semântica pendente: nenhum provedor LLM. O piso determinístico passou.",
-            markup=False,
-        )
+        if not json_out:
+            console.print(
+                "⚠ Camada semântica pendente: nenhum provedor LLM. O piso determinístico passou.",
+                markup=False,
+            )
         err_console.print(f"  {onboarding_status(semantic_ready=False).guidance}", markup=False)
+        _finish_ready(
+            json_out,
+            parsed.spec_id,
+            ok=False,
+            reason="camada semântica pendente (sem provedor LLM)",
+            floor=floor,
+        )
         raise typer.Exit(1)
 
     threshold = _load_readiness_config().threshold
@@ -279,14 +315,59 @@ def ready(
         evaluation = _evaluate_llm(text)
     except LLMError as exc:
         err_console.print(f"✗ {exc}", markup=False, style="red")
+        _finish_ready(json_out, parsed.spec_id, ok=False, reason="erro na camada LLM", floor=floor)
         raise typer.Exit(1) from None
 
-    _render_evaluation(parsed.spec_id, evaluation, threshold)
+    if not json_out:
+        _render_evaluation(parsed.spec_id, evaluation, threshold)
+    llm = {
+        "score": evaluation.score,
+        "threshold": threshold,
+        "model": evaluation.model,
+        "cached": evaluation.cached,
+    }
     if evaluation.blocks(threshold):
+        _finish_ready(
+            json_out,
+            parsed.spec_id,
+            ok=False,
+            reason=f"score {evaluation.score} < limiar {threshold}",
+            floor=floor,
+            llm=llm,
+        )
         raise typer.Exit(1)
+    _finish_ready(json_out, parsed.spec_id, ok=True, floor=floor, llm=llm)
 
 
-def _record_override(spec_id: str, author: str | None, reason: str | None) -> None:
+def _finish_ready(
+    json_out: bool,
+    spec_id: str,
+    *,
+    ok: bool,
+    reason: str | None = None,
+    floor: dict | None = None,
+    llm: dict | None = None,
+) -> None:
+    """A linha final que responde "está pronta ou não?" em todo caminho (SPEC-017)."""
+    if json_out:
+        payload = {
+            "spec": spec_id,
+            "verdict": "ready" if ok else "blocked",
+            "reason": reason,
+            "floor": floor,
+            "llm": llm,
+        }
+        print(json.dumps(payload, ensure_ascii=False))
+    elif ok:
+        suffix = f" — {reason}" if reason else ""
+        console.print(f"Veredito: PRONTA{suffix}", markup=False, style="green")
+    else:
+        console.print(f"Veredito: BLOQUEADA — {reason}", markup=False, style="red")
+
+
+def _record_override(
+    spec_id: str, author: str | None, reason: str | None, *, quiet: bool = False
+) -> None:
     if not author or not reason:
         err_console.print(
             "✗ override exige --author e --reason (autor e justificativa auditados)",
@@ -303,6 +384,8 @@ def _record_override(spec_id: str, author: str | None, reason: str | None) -> No
     except DatabaseError as exc:
         err_console.print(f"✗ {exc}", markup=False, style="red")
         raise typer.Exit(1) from None
+    if quiet:
+        return  # modo --json: o stdout carrega só o payload (SPEC-017)
     console.print(
         f"✓ Override registrado por {author}: {spec_id} liberada para ready.", markup=False
     )
@@ -793,7 +876,7 @@ def perception(
     if json_out:
         _emit_perception_json(agg)
     else:
-        _render_perception(agg)
+        _render_perception(agg, snapshot, cycle_times)
 
 
 def _derive_spec_for_pr(target, pr: str) -> str | None:
@@ -829,7 +912,7 @@ def _emit_perception_json(agg) -> None:
     print(json.dumps(payload, ensure_ascii=False))
 
 
-def _render_perception(agg) -> None:
+def _render_perception(agg, snapshot, cycle_times) -> None:
     table = Table(title=f"Percepção — sprint {agg.sprint}")
     table.add_column("Métrica")
     table.add_column("Valor")
@@ -844,11 +927,33 @@ def _render_perception(agg) -> None:
     )
     console.print(table)
     if agg.perception_gap is None:
-        console.print(
-            "Gap indisponível: compute as métricas da sprint (specharness metrics) primeiro.",
-            markup=False,
-            style="yellow",
+        console.print(_gap_diagnosis(agg, snapshot, cycle_times), markup=False, style="yellow")
+
+
+def _gap_diagnosis(agg, snapshot, cycle_times) -> str:
+    """A causa real do gap indisponível, com a ação que resolve (SPEC-017).
+
+    Precedência fixa: sem amostras → sem snapshot → sem cycle time → sem
+    amostra comparável. A antiga dica única ("rode metrics") mandava o usuário
+    para o lugar errado em 3 das 4 causas.
+    """
+    if agg.n_samples == 0:
+        return (
+            "Gap indisponível: nenhuma amostra de percepção na sprint — "
+            "colete com specharness survey."
         )
+    if snapshot is None:
+        return (
+            "Gap indisponível: nenhum snapshot de métricas — "
+            f"rode specharness metrics {agg.sprint}."
+        )
+    if not cycle_times:
+        return (
+            "Gap indisponível: o snapshot existe, mas nenhuma spec tem cycle time "
+            "(faltam transições ready→done no histórico, exclusivas do CI); "
+            "recalcular as métricas não muda isso."
+        )
+    return "Gap indisponível: nenhuma amostra é de spec com cycle time conhecido."
 
 
 def _fmt_mean(value: float | None) -> str:

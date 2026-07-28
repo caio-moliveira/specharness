@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from specharness_cli.main import app
 from specharness_core import Evaluation
+from specharness_core.ports.llm import LLMError
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -169,3 +172,109 @@ def test_ready_is_discoverable_from_help():
     result = runner.invoke(app, ["--help"])
 
     assert "ready" in result.output
+
+
+# --- veredito consolidado (SPEC-017) ----------------------------------------
+
+
+def test_floor_block_ends_with_a_verdict(monkeypatch, in_repo, with_provider):
+    _fake_llm(monkeypatch, 90)
+    bad = _good_spec("SPEC-042").replace(
+        '  - "Commit com trailer válido é vinculado à spec"\n',
+        '  - "Commit com trailer válido é vinculado à spec"\n  - "Exporta relatório em PDF"\n',
+    )
+    (in_repo / "specs" / "SPEC-042-y.md").write_text(bad, "utf-8")
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert "Veredito: BLOQUEADA" in result.output
+    assert "piso determinístico" in result.output
+
+
+def test_no_provider_ends_with_a_blocked_verdict(no_provider):
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert "Veredito: BLOQUEADA" in result.output
+    assert "semântica pendente" in result.output.lower()
+
+
+def test_a_pass_ends_with_verdict_pronta(monkeypatch, with_provider):
+    _fake_llm(monkeypatch, 92)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 0, result.output
+    assert "Veredito: PRONTA" in result.output
+
+
+def test_a_low_score_verdict_names_score_and_threshold(monkeypatch, with_provider):
+    _fake_llm(monkeypatch, 50)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert "Veredito: BLOQUEADA" in result.output
+    assert "score 50" in result.output and "limiar" in result.output
+
+
+def test_override_ends_with_a_verdict(monkeypatch):
+    result = runner.invoke(
+        app, ["ready", "SPEC-042", "--override", "--author", "Ana", "--reason", "release urgente"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Veredito: PRONTA" in result.output
+    assert "override" in result.output.lower()
+
+
+def _fake_llm_error(monkeypatch):
+    def fake(text, client):
+        raise LLMError("provedor caiu no meio da avaliação")
+
+    monkeypatch.setattr("specharness_cli.main.evaluate_spec", fake)
+
+
+def test_an_llm_error_ends_with_a_blocked_verdict(monkeypatch, with_provider):
+    _fake_llm_error(monkeypatch)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert "provedor caiu" in result.output
+    assert "Veredito: BLOQUEADA" in result.output
+    assert "erro na camada LLM" in result.output
+
+
+def test_ready_json_reports_an_llm_error(monkeypatch, with_provider):
+    _fake_llm_error(monkeypatch)
+
+    result = runner.invoke(app, ["ready", "SPEC-042", "--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "blocked"
+    assert payload["reason"] == "erro na camada LLM"
+    assert payload["llm"] is None
+
+
+def test_ready_json_emits_the_verdict(monkeypatch, with_provider):
+    _fake_llm(monkeypatch, 92)
+
+    result = runner.invoke(app, ["ready", "SPEC-042", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "ready"
+    assert payload["floor"]["passed"] is True
+    assert payload["llm"]["score"] == 92
+
+
+def test_ready_json_blocked_names_the_reason(no_provider):
+    result = runner.invoke(app, ["ready", "SPEC-042", "--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "blocked"
+    assert "semântica" in payload["reason"]
