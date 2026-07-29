@@ -111,3 +111,17 @@ db-migrate:
 # Gera o sprint report do próprio specharness (SPEC-015)
 report sprint="2026-A4":
     uv run specharness report {{sprint}}
+
+# Compila o dashboard e o embute no pacote do server (SPEC-021). Node é build-time.
+build-web:
+    cd web && npm ci && npm run build
+    rm -rf packages/server/src/specharness_server/_web
+    cp -r web/dist packages/server/src/specharness_server/_web
+
+# Constrói os wheels publicáveis com o dashboard embutido (SPEC-021).
+build: build-web
+    uv build --all-packages -o dist
+
+# Gate de artefato (SPEC-021): dashboard embutido e sem segredos (ADR-016)
+check-dist:
+    uv run python scripts/check_dist.py dist

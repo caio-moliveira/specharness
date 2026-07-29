@@ -11,6 +11,9 @@ htmlcov/
 .coverage
 node_modules/
 web/dist/
+# Dashboard compilado, embutido no wheel em build-time (SPEC-021) — nunca versionado
+packages/server/src/specharness_server/_web/
+dist_test/
 *.db
 *.sqlite3
 .DS_Store

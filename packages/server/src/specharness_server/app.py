@@ -20,6 +20,7 @@ from specharness_core.ports.database import DatabaseTarget
 from .assembly import big_picture, spec_pipeline
 from .models import BigPicture, SpecPipeline
 from .seed import SEED_SPRINT, demo_target
+from .static import mount_dashboard
 
 # Onboarding sem fricção (SPEC-004/005): o server lê o mesmo .env que o CLI,
 # então `uvicorn specharness_server.app:app` funciona sem --env-file. Variáveis
@@ -78,3 +79,8 @@ def get_spec_pipeline(spec_id: str) -> SpecPipeline:
     if pipeline is None:
         raise HTTPException(status_code=404, detail=f"spec {spec_id} não encontrada")
     return pipeline
+
+
+# Por último (SPEC-021): o dashboard é servido em "/", sem sombrear /health,
+# /api/* e /docs, que já foram registrados acima.
+mount_dashboard(app)

@@ -82,3 +82,22 @@ jobs:
       - run: uv run pytest packages/adapters --cov=specharness_adapters.report --cov-fail-under=90
       # Cobertura da API do dashboard: assembly + seed + endpoints (SPEC-016).
       - run: uv run pytest packages/server --cov=specharness_server --cov-fail-under=90
+
+  # Gate de artefato da SPEC-021: o wheel embute o dashboard e não vaza segredos.
+  # Node é build-time (compila o dashboard); no CI para não apodrecer como métrica
+  # só-local (ADR-016). O build hook do server falha se o dashboard não existir.
+  dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: npm --prefix web ci
+      - run: npm --prefix web run build
+      # Embute o dashboard na árvore-fonte antes de empacotar (o build hook só
+      # verifica; o `uv build` isolado não alcança web/dist).
+      - run: cp -r web/dist packages/server/src/specharness_server/_web
+      - run: uv build --all-packages -o dist
+      - run: uv run python scripts/check_dist.py dist
