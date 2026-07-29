@@ -65,6 +65,13 @@ from .report import (
     render_markdown,
     report_lines,
 )
+from .scaffold import (
+    AGENT_LAYER_FILE,
+    FIXED_SPINE,
+    ScaffoldParams,
+    render_commit_msg_hook,
+    scaffold_files,
+)
 from .specschema import (
     ParsedSpec,
     SpecFrontmatter,
@@ -154,6 +161,11 @@ __all__ = [
     "Selections",
     "env_vars_for",
     "render_config",
+    "AGENT_LAYER_FILE",
+    "FIXED_SPINE",
+    "ScaffoldParams",
+    "render_commit_msg_hook",
+    "scaffold_files",
 ]
 
 __version__ = "0.1.0"

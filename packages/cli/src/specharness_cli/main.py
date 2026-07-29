@@ -111,6 +111,11 @@ from specharness_core.ports.tracker import (
     TrackerAuthenticationFailed,
     TrackerError,
 )
+from specharness_core.scaffold import (
+    ScaffoldParams,
+    render_commit_msg_hook,
+    scaffold_files,
+)
 
 app = typer.Typer(
     name="specharness",
@@ -251,6 +256,28 @@ def _scaffold_env(path: Path, names: list[str]) -> list[str]:
     return missing
 
 
+def _write_scaffold_files(root: Path, files: dict[str, str]) -> list[str]:
+    """Escreve os arquivos de instrução (idempotente: pula os idênticos)."""
+    written: list[str] = []
+    for relpath, content in files.items():
+        path = root / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if _write_config(path, content):
+            written.append(relpath)
+    return written
+
+
+def _install_commit_hook(root: Path) -> bool:
+    """Instala o hook commit-msg no git do usuário; False se não há .git aqui."""
+    hooks_dir = root / ".git" / "hooks"
+    if not hooks_dir.is_dir():
+        return False
+    hook = hooks_dir / "commit-msg"
+    hook.write_text(render_commit_msg_hook(), encoding="utf-8")
+    hook.chmod(0o755)
+    return True
+
+
 @app.command()
 def init(
     tracker: str | None = typer.Option(None, help="tracker: github-issues|redmine|jira|none"),
@@ -258,15 +285,19 @@ def init(
     db: str | None = typer.Option(None, help="db: sqlite|postgres"),
     agent: str | None = typer.Option(None, help="coding agent: claude-code|codex|kimi"),
     llm: str | None = typer.Option(None, help="llm: anthropic|openai|azure|ollama"),
+    coverage_min: int = typer.Option(85, help="cobertura mínima do código de domínio (%)"),
+    commit_convention: str = typer.Option("conventional", help="convenção de commit"),
+    bdd_language: str = typer.Option("pt", help="linguagem do BDD (Gherkin)"),
     non_interactive: bool = typer.Option(
         False, "--non-interactive", "-y", help="não pergunta; usa as flags e os defaults"
     ),
 ) -> None:
     """Configura o specharness no seu repo: seleciona as ferramentas, grava o
-    specharness.yaml e guia o .env (SPEC-022).
+    specharness.yaml, guia o .env (SPEC-022) e gera o harness do agente (SPEC-023).
 
     Credenciais NUNCA vão para o yaml — só os NOMES das env vars entram no .env,
-    que é garantido no .gitignore antes de qualquer sugestão (ADR-006).
+    que é garantido no .gitignore antes de qualquer sugestão (ADR-006). Os arquivos
+    de instrução carregam a espinha fixa do método, não desligável (ADR-021).
     """
     provided = {"tracker": tracker, "git": git, "db": db, "agent": agent, "llm": llm}
     try:
@@ -280,6 +311,13 @@ def init(
     changed = _write_config(root / CONFIG_FILENAME, render_config(selections))
     added = _scaffold_env(root / ".env", env_vars_for(selections))
 
+    params = ScaffoldParams(
+        commit_convention=commit_convention, coverage_min=coverage_min, bdd_language=bdd_language
+    )
+    files = scaffold_files(selections.agent, selections.tracker, params)
+    _write_scaffold_files(root, files)
+    hooked = _install_commit_hook(root)
+
     console.print(
         f"✓ {CONFIG_FILENAME} {'gravado' if changed else 'já estava atualizado'}.", markup=False
     )
@@ -289,6 +327,11 @@ def init(
         )
     else:
         console.print("✓ .env: nada a adicionar.", markup=False)
+    console.print(f"✓ harness do agente gerado: {', '.join(files)}", markup=False)
+    if hooked:
+        console.print("✓ hook de commit-msg instalado (trailer Spec: obrigatório).", markup=False)
+    else:
+        console.print("• sem .git aqui — hook de commit-msg não instalado.", markup=False)
     console.print(
         "  Preencha os valores no .env (já ignorado pelo git). Depois rode `specharness up`.",
         markup=False,

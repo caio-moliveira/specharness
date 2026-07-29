@@ -1,10 +1,11 @@
 ---
 spec: SPEC-023
 title: "Captura de processo e scaffolding do harness no repo do usuário"
-status: draft
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-29
+updated: 2026-07-29
 sprint: 2026-C1
 tracker_refs: []
 depends_on: [SPEC-022]
@@ -43,6 +44,11 @@ Decisões (a fechar no readiness):
   ajustam limiares e convenções, não a existência dos gates.
 - O fluxo do agente é declarado: implementar o próximo spec `ready`, derivado do
   WorkItem do tracker (ADR-020).
+- "Onde vive o planejamento" reusa o tracker que a SPEC-022 já gravou no bloco
+  `init:` — o scaffolding lê essa seleção, não re-pergunta.
+- Os parâmetros de processo (convenção de commit, cobertura mínima, linguagem do
+  BDD) entram por flags com default, mantendo os prompts focados nas ferramentas;
+  PR rules e métricas objetivas entram como defaults da espinha fixa no AGENTS.md.
 
 ## Fora de escopo
 
