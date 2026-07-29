@@ -69,7 +69,9 @@ def get_big_picture(sprint: str | None = None) -> BigPicture:
     """
     if _demo():
         return big_picture(_target(), _specs_dir(), sprint or SEED_SPRINT, data_source="demo")
-    return big_picture(_target(), _specs_dir(), sprint)
+    # Live é o padrão (SPEC-024): dados reais do projeto do usuário, explícito para
+    # o contrato não depender do default de big_picture.
+    return big_picture(_target(), _specs_dir(), sprint, data_source="live")
 
 
 @app.get("/api/specs/{spec_id}/pipeline", response_model=SpecPipeline, tags=["dashboard"])
