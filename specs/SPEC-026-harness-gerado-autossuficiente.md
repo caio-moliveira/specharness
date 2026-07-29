@@ -1,7 +1,7 @@
 ---
 spec: SPEC-026
 title: "Harness gerado auto-suficiente no repo do usuário"
-status: approved
+status: verifying
 type: harness
 owner: caio
 created: 2026-07-29
