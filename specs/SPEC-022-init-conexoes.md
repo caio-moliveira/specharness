@@ -1,10 +1,11 @@
 ---
 spec: SPEC-022
 title: "specharness init: wizard de conexões (tracker, git, db, agente, LLM)"
-status: draft
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-29
+updated: 2026-07-29
 sprint: 2026-C1
 tracker_refs: []
 depends_on: [SPEC-004, SPEC-005, SPEC-006]
@@ -72,4 +73,9 @@ Funcionalidade: configuração inicial interativa das conexões
     Dado um repositório e as seleções passadas por flags
     Quando o init roda em modo não-interativo
     Então a configuração é gravada sem nenhum prompt
+
+  Cenário: re-rodar com as mesmas respostas é idempotente
+    Dado um repositório já inicializado
+    Quando o init roda de novo com as mesmas seleções
+    Então o specharness.yaml não sofre nenhuma alteração
 ```

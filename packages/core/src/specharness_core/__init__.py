@@ -30,6 +30,14 @@ from .metrics import (
     tampering_signals,
     turnover_ratio,
 )
+from .onboarding import (
+    CATEGORIES,
+    OPTIONS,
+    InvalidSelection,
+    Selections,
+    env_vars_for,
+    render_config,
+)
 from .perception import (
     PerceptionError,
     PerceptionSample,
@@ -140,6 +148,12 @@ __all__ = [
     "parse_spec",
     "extract_spec_trailers",
     "valid_spec_trailers",
+    "CATEGORIES",
+    "OPTIONS",
+    "InvalidSelection",
+    "Selections",
+    "env_vars_for",
+    "render_config",
 ]
 
 __version__ = "0.1.0"
