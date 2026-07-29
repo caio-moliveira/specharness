@@ -18,8 +18,8 @@ from pathlib import Path
 SECRET_HINTS = (".env", ".pem", "id_rsa", "secret", "credential")
 
 
-def main() -> int:
-    dist = Path(sys.argv[1] if len(sys.argv) > 1 else "dist")
+def main(dist_dir: str | None = None) -> int:
+    dist = Path(dist_dir or (sys.argv[1] if len(sys.argv) > 1 else "dist"))
     wheels = sorted(dist.glob("*.whl"))
     if not wheels:
         print(f"✗ nenhum wheel em {dist}/ — rode `just build` antes.")

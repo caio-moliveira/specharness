@@ -165,8 +165,9 @@ def up(
 ) -> None:
     """Sobe API + dashboard numa porta só (SPEC-021).
 
-    Faz um preflight do banco: se ele não estiver acessível/migrado, encerra com
-    orientação para rodar o init, em vez de um stack trace.
+    Sem SPECHARNESS_DATABASE_URL, sobe com o SQLite default zero-config (ADR-002).
+    Se um banco foi configurado mas está inacessível, o preflight encerra com erro
+    acionável nomeando a variável de conexão, em vez de um stack trace.
     """
     if demo:
         os.environ["SPECHARNESS_DEMO"] = "1"
@@ -175,8 +176,8 @@ def up(
     except DatabaseError as exc:
         err_console.print(f"✗ {exc}", markup=False, style="red")
         err_console.print(
-            "  Banco indisponível. Rode `specharness init` (ou `specharness connect db`) "
-            "antes do up.",
+            "  Banco configurado inacessível. Verifique SPECHARNESS_DATABASE_URL "
+            "(ou rode `specharness connect db`).",
             markup=False,
             style="yellow",
         )

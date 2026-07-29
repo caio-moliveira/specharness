@@ -20,7 +20,8 @@ acceptance:
   - A raiz (GET /) serve o dashboard e as rotas /api e /docs continuam funcionando
   - O dashboard compilado vai embutido no wheel como package data, sem exigir Node no usuário
   - O artefato publicável não contém segredos nem arquivos de desenvolvimento
-  - specharness up sem banco configurado encerra com erro acionável orientando o init, sem stack trace
+  - Sem banco configurado, specharness up sobe com o SQLite default zero-config (ADR-002), sem exigir init
+  - specharness up com banco configurado mas inacessível encerra com erro acionável nomeando a conexão, sem stack trace
 ---
 
 ## Contexto
@@ -33,11 +34,15 @@ seguido de um único `specharness up` que serve API + dashboard numa porta só.
 
 Decisões de empacotamento (a fechar no readiness):
 
-- A distribuição pública é `specharness`; o workspace interno permanece
-  `specharness-workspace`. O comando de console `specharness` já existe (Typer).
-- O build do web (Vite → `dist/`) roda ao gerar o wheel, via build hook, e o
-  `dist/` entra como package data. Em runtime a API monta o estático com fallback
-  de SPA (index.html para rotas não-/api), e `GET /` passa a servir o dashboard.
+- A distribuição pública é `specharness` (o projeto raiz do workspace, renomeado
+  de `specharness-workspace`), que puxa os cinco sub-pacotes. O console script
+  `specharness` vem do CLI.
+- O dashboard (Vite → `web/dist`) é embutido em `specharness_server/_web` por um
+  build hook do hatch escopado ao wheel, que FALHA o build se o dashboard não foi
+  compilado (`just build-web` antes). Em runtime a API monta o estático e `GET /`
+  passa a servir o dashboard; sem build, `/` devolve orientação, não 404.
+- O gate `scripts/check_dist.py` audita o artefato (dashboard embutido, sem
+  segredos) e roda no CI — a métrica é medida, não afirmada (ADR-016).
 - `specharness up` faz o boot do servidor servindo o estático; a semântica de
   *live por padrão vs demo* é da SPEC-024. Aqui basta que `up` suba e sirva.
 - **Node é requisito de build-time** (compilar o dashboard para o wheel), no
@@ -76,8 +81,13 @@ Funcionalidade: instalação e boot único do specharness
     Quando seu conteúdo é inspecionado
     Então nenhum arquivo .env, chave ou artefato de desenvolvimento está presente
 
-  Cenário: boot sem banco configurado falha com orientação
-    Dado o specharness instalado num repositório sem configuração de banco
+  Cenário: sem configuração, sobe com o SQLite default
+    Dado o specharness instalado num repositório sem SPECHARNESS_DATABASE_URL
     Quando o usuário roda specharness up
-    Então o comando encerra com erro acionável orientando rodar o init, sem stack trace
+    Então o servidor sobe com o SQLite default zero-config, sem exigir init
+
+  Cenário: banco configurado mas inacessível falha com orientação
+    Dado SPECHARNESS_DATABASE_URL apontando para um banco inacessível
+    Quando o usuário roda specharness up
+    Então o comando encerra com erro que nomeia a variável de conexão, sem stack trace
 ```

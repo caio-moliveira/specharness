@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from specharness_cli import main
 from specharness_cli.main import app
-from specharness_core.ports.database import DatabaseError
 from typer.testing import CliRunner
 
 runner = CliRunner()
@@ -16,27 +15,23 @@ def test_up_help_mentions_port():
     assert "--port" in result.output
 
 
-def test_up_aborts_when_db_unavailable(monkeypatch):
-    def boom():
-        raise DatabaseError("Falha de banco em localhost. Verifique SPECHARNESS_DATABASE_URL.")
-
+def test_up_aborts_when_configured_db_unreachable(monkeypatch):
+    # Banco CONFIGURADO mas inacessível — connection refused real em :1, sem mock.
+    monkeypatch.setenv("SPECHARNESS_DATABASE_URL", "postgresql+psycopg://u:p@127.0.0.1:1/none")
     started: list[tuple[str, int]] = []
-    monkeypatch.setattr(main, "gateway_from_env", boom)
     monkeypatch.setattr(main, "_run_server", lambda host, port: started.append((host, port)))
 
     result = runner.invoke(app, ["up"])
     assert result.exit_code == 1
-    assert not started  # o servidor nunca sobe com banco indisponível
-    assert "init" in result.output.lower()
+    assert not started  # o servidor nunca sobe com banco inacessível
+    assert "SPECHARNESS_DATABASE_URL" in result.output  # erro nomeia a conexão
 
 
-def test_up_starts_server_when_db_ok(monkeypatch):
-    class _Gateway:
-        def migrate(self) -> None:
-            return None
-
+def test_up_starts_with_sqlite_default(tmp_path, monkeypatch):
+    # Sem config, ADR-002 sobe com o SQLite default zero-config — não exige init.
+    monkeypatch.delenv("SPECHARNESS_DATABASE_URL", raising=False)
+    monkeypatch.chdir(tmp_path)
     started: list[tuple[str, int]] = []
-    monkeypatch.setattr(main, "gateway_from_env", lambda: _Gateway())
     monkeypatch.setattr(main, "_run_server", lambda host, port: started.append((host, port)))
 
     result = runner.invoke(app, ["up", "--port", "9999"])
