@@ -1,14 +1,18 @@
-"""Build hook (SPEC-021): embute o dashboard compilado no wheel do server.
+"""Build hook (SPEC-021): garante que o wheel do server embute o dashboard.
 
-Escopado ao target `wheel` (não roda em instalação editável / `uv sync`). Copia
-`web/dist` → `specharness_server/_web` na hora de empacotar. Se o dashboard não
-foi compilado, FALHA o build — em vez de publicar um wheel sem dashboard em
-silêncio (o furo que a verificação adversarial pegou).
+O dashboard compilado é colocado em `specharness_server/_web` por `just build-web`
+(cópia de `web/dist`) e entra no sdist/wheel via `artifacts`. Este hook apenas
+VERIFICA: um wheel real (version "standard") sem `_web` FALHA o build, em vez de
+publicar um pacote sem dashboard em silêncio. Instalação editável (uv sync/dev)
+é ignorada — não empacota nem exige o dashboard, então o CI que roda `uv sync`
+sem build do web não quebra.
+
+Não copiar de `web/dist` aqui de propósito: em `uv build` isolado o hook roda
+num diretório temporário e não alcança a árvore do repo.
 """
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -17,16 +21,11 @@ from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
 class DashboardBuildHook(BuildHookInterface):
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
-        server_root = Path(self.root)
-        target = server_root / "src" / "specharness_server" / "_web"
-        dist = server_root.parent.parent / "web" / "dist"
-
-        if (dist / "index.html").is_file():
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(dist, target)
-        elif not (target / "index.html").is_file():
+        if version == "editable":
+            return
+        target = Path(self.root) / "src" / "specharness_server" / "_web"
+        if not (target / "index.html").is_file():
             raise RuntimeError(
-                "Dashboard não compilado: nem web/dist nem _web existem. "
+                "Dashboard não compilado: specharness_server/_web ausente. "
                 "Rode `just build-web` antes de empacotar o wheel (SPEC-021)."
             )
