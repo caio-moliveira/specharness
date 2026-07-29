@@ -29,7 +29,7 @@ export function BigPictureView({ onOpenSpec }: { onOpenSpec: (specId: string) =>
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
         <span>
-          {t("phase")}: <strong className="text-foreground">{data.phase}</strong>
+          {t("phase")}: <strong className="text-foreground">{data.phase ?? t("noData")}</strong>
         </span>
         <span>
           {t("sprint")}: <strong className="text-foreground">{data.sprint ?? t("noData")}</strong>
@@ -91,7 +91,7 @@ export function BigPictureView({ onOpenSpec }: { onOpenSpec: (specId: string) =>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {t("sprintMetrics")}
-          <ProvenanceChip source="snapshot SPEC-013" />
+          <ProvenanceChip source="snapshot" />
         </p>
       </section>
 
@@ -114,7 +114,7 @@ export function BigPictureView({ onOpenSpec }: { onOpenSpec: (specId: string) =>
             {t("perceptionGap")}:{" "}
             <span className="font-mono">{pct(data.perception.perception_gap) ?? t("noData")}</span>
           </span>
-          <ProvenanceChip source="survey SPEC-014" />
+          <ProvenanceChip source="survey" />
         </div>
       </section>
     </div>

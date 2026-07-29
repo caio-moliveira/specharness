@@ -36,9 +36,6 @@ from .models import (
     SprintMetricRow,
 )
 
-#: The dashboard is the first visible delivery of Fase A (SPEC-001 §5).
-PHASE = "Fase A"
-
 _READINESS_DONE = frozenset({"ready", "in_progress", "verifying", "done"})
 
 
@@ -71,6 +68,7 @@ def big_picture(
     specs_dir: Path,
     sprint: str | None = None,
     data_source: str = "live",
+    phase: str | None = None,
 ) -> BigPicture:
     infos = load_spec_infos(specs_dir)
     chosen = sprint or current_sprint(infos)
@@ -117,7 +115,7 @@ def big_picture(
     linking = link_commits(RepositoryStore(target).all_commits(), infos)
 
     return BigPicture(
-        phase=PHASE,
+        phase=phase,
         sprint=chosen,
         specs_by_status=specs_by_status,
         metrics=metrics,
@@ -180,7 +178,7 @@ def spec_pipeline(target: DatabaseTarget, specs_dir: Path, spec_id: str) -> Spec
         PipelineStage(
             stage="review",
             status="unavailable",
-            detail="ingestão de eventos de review pendente (deferida na SPEC-013)",
+            detail="ingestão de eventos de review pendente",
             detail_key="detailReviewPending",
         ),
         PipelineStage(

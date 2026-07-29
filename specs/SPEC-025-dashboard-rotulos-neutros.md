@@ -1,7 +1,7 @@
 ---
 spec: SPEC-025
 title: "Dashboard sem rótulos internos do specharness"
-status: ready
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29
