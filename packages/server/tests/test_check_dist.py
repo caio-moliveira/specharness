@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import tarfile
 import zipfile
+from io import BytesIO
 from pathlib import Path
 
 _PATH = Path(__file__).resolve().parents[3] / "scripts" / "check_dist.py"
@@ -17,6 +19,14 @@ def _wheel(path: Path, arcnames: list[str]) -> None:
     with zipfile.ZipFile(path, "w") as zf:
         for name in arcnames:
             zf.writestr(name, "x")
+
+
+def _sdist(path: Path, arcnames: list[str]) -> None:
+    with tarfile.open(path, "w:gz") as tf:
+        for name in arcnames:
+            info = tarfile.TarInfo(name)
+            info.size = 1
+            tf.addfile(info, BytesIO(b"x"))
 
 
 def test_passes_when_dashboard_embedded_and_clean(tmp_path):
@@ -44,3 +54,22 @@ def test_fails_when_secret_present(tmp_path):
 
 def test_fails_when_no_wheels(tmp_path):
     assert check_dist.main(str(tmp_path)) == 1
+
+
+def test_fails_when_sdist_carries_secret(tmp_path):
+    _wheel(
+        tmp_path / "specharness_server-0.1.0-py3-none-any.whl",
+        ["specharness_server/_web/index.html"],
+    )
+    _sdist(tmp_path / "specharness-0.1.0.tar.gz", ["specharness-0.1.0/.env"])
+    assert check_dist.main(str(tmp_path)) == 1
+
+
+def test_env_example_is_not_flagged(tmp_path):
+    # `.env.example` é um template legítimo — não pode ser confundido com `.env`.
+    _wheel(
+        tmp_path / "specharness_server-0.1.0-py3-none-any.whl",
+        ["specharness_server/_web/index.html"],
+    )
+    _sdist(tmp_path / "specharness-0.1.0.tar.gz", ["specharness-0.1.0/.env.example"])
+    assert check_dist.main(str(tmp_path)) == 0
