@@ -16,9 +16,11 @@ from specharness_core.scaffold import (
     ScaffoldParams,
     block_files,
     merge_block,
+    render_agent_layer,
     render_agents_md,
     render_commit_msg_hook,
     render_spec_template,
+    render_specs_readme,
     starter_files,
     wrap_block,
 )
@@ -31,6 +33,48 @@ def test_fixed_spine_present_for_any_agent_and_tracker():
             agents_md = block_files(agent, tracker, ScaffoldParams())["AGENTS.md"]
             for marker in FIXED_SPINE:
                 assert marker in agents_md, f"{marker!r} sumiu para {agent}/{tracker}"
+
+
+#: Ferramentas/caminhos do NOSSO fluxo de dev (produto A) que o init NÃO provisiona
+#: no repo do usuário (produto B) — não podem aparecer no harness gerado (SPEC-026).
+#: `profiles` cru (sem barra) também é proibido: pega qualquer citação do diretório.
+_UNPROVISIONED_INTERNAL_REFS = ("verificar-spec", "profiles")
+
+
+def test_generated_harness_references_no_unprovisioned_internal_tooling():
+    # O harness gerado expressa o método, sem citar ferramenta/caminho que só
+    # existe no repositório do specharness — nos TRÊS renderers (SPEC-026).
+    for agent in OPTIONS["agent"]:
+        for tracker in OPTIONS["tracker"]:
+            generated = "\n".join(
+                (
+                    *block_files(agent, tracker, ScaffoldParams()).values(),
+                    render_specs_readme(tracker),
+                )
+            )
+            for ref in _UNPROVISIONED_INTERNAL_REFS:
+                assert ref not in generated, f"{ref!r} vazou no harness de {agent}/{tracker}"
+
+
+def test_independent_verification_survives_as_method_not_tool_name():
+    # O princípio (verificação independente em contexto limpo) permanece na espinha
+    # fixa, mesmo sem o nome da ferramenta interna (SPEC-026).
+    md = render_agents_md("jira", ScaffoldParams())
+    assert "verificação independente" in md
+    assert "verificar-spec" not in md
+
+
+def test_tracker_none_never_shows_the_raw_literal():
+    # Com tracker none, os três renderers descrevem o backlog local em specs/, sem
+    # exibir o literal cru `none` ao usuário (SPEC-026).
+    rendered = (
+        render_agents_md("none", ScaffoldParams()),
+        render_agent_layer("claude-code", "none"),
+        render_specs_readme("none"),
+    )
+    for text in rendered:
+        assert "none" not in text
+        assert "specs" in text  # aponta o backlog local
 
 
 def test_each_agent_gets_its_layer_file():

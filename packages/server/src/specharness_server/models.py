@@ -38,7 +38,7 @@ class PerceptionSummary(BaseModel):
 
 
 class BigPicture(BaseModel):
-    phase: str
+    phase: str | None  # contexto do projeto do usuário; null quando não há um (SPEC-025)
     sprint: str | None
     specs_by_status: list[SpecStatusCount]
     metrics: list[SprintMetricRow]

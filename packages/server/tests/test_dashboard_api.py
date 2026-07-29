@@ -48,7 +48,7 @@ def _write_spec(specs_dir, spec_id: str, status: str, sprint: str = SEED_SPRINT)
 def test_big_picture_with_seed_data(client):
     body = client.get("/api/big-picture").json()
 
-    assert body["phase"] == "Fase A"
+    assert body["phase"] is None  # sem fase interna do specharness vazando (SPEC-025)
     assert body["sprint"] == SEED_SPRINT
     statuses = {row["status"]: row["count"] for row in body["specs_by_status"]}
     assert statuses == {"approved": 1, "done": 1, "verifying": 1}

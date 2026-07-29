@@ -23,7 +23,7 @@ FIXED_SPINE: tuple[str, ...] = (
     "BDD",
     "nunca expõem indivíduos",
     "quem implementa não arbitra",
-    "verificar-spec",
+    "verificação independente",
 )
 
 #: Arquivo de instrução por coding agent suportado (a "camada" sobre o AGENTS.md).
@@ -70,11 +70,18 @@ class ScaffoldParams:
     bdd_language: str = "pt"
 
 
+def _planning_label(tracker: str) -> str:
+    """Rótulo legível de onde o time puxa o trabalho — nunca o literal cru `none`.
+
+    Fonte única usada pelos três renderers do harness (SPEC-026): com `none`, o
+    trabalho vem do backlog local em specs/, não de um tracker externo.
+    """
+    return {"github-issues": "GitHub", "none": "o backlog local em specs/"}.get(tracker, tracker)
+
+
 def render_agents_md(tracker: str, params: ScaffoldParams) -> str:
     """O AGENTS.md base: espinha fixa do método + parâmetros do time (SPEC-023)."""
-    planning = {"github-issues": "GitHub", "none": "o backlog local em specs/"}.get(
-        tracker, tracker
-    )
+    planning = _planning_label(tracker)
     return f"""# Guia para Agentes de Código (gerado por specharness init)
 
 Este repositório usa **Spec-Driven Development** instrumentado pelo specharness:
@@ -98,8 +105,9 @@ fazer, ela vem primeiro.
 4. **As métricas nunca expõem indivíduos** — medem processo, spec e agente;
    número auto-relatado por agente não entra no cálculo.
 5. **quem implementa não arbitra** — seu auto-relato é alegação; a evidência vem
-   de artefatos (CI, coverage, git). Toda entrega passa pelo `verificar-spec` em
-   contexto limpo antes do relatório final.
+   de artefatos (CI, coverage, git). Antes do relatório final, toda entrega passa
+   por uma verificação independente em contexto limpo: quem não a implementou
+   confere a evidência.
 
 ## Convenções do time
 
@@ -119,18 +127,18 @@ fazer, ela vem primeiro.
 
 
 def render_agent_layer(agent: str, tracker: str) -> str:
-    """A camada do agente selecionado — aponta para o AGENTS.md base (ADR-003/004)."""
+    """A camada do agente selecionado — aponta para o AGENTS.md base (ADR-003)."""
     return f"""# Camada {agent} (gerado por specharness init)
 
 Este arquivo é a camada específica do agente **{agent}** sobre o `AGENTS.md`
 base deste repositório. Leia `AGENTS.md` primeiro — ele define a espinha fixa do
 método (Readiness Gate, trailer `Spec:`, BDD travando `done`, métricas que nunca
-expõem indivíduos, e o `verificar-spec` antes de entregar).
+expõem indivíduos, e a verificação independente antes de entregar).
 
-- Puxe o trabalho do próximo spec `ready` em `specs/`, derivado do tracker
-  ({tracker}).
-- Este perfil deriva de `profiles/{agent}` (dados do specharness, ADR-004) e
-  amadurece com as práticas oficiais do fornecedor.
+- Puxe o trabalho do próximo spec `ready` em `specs/`, derivado do planejamento
+  do time ({_planning_label(tracker)}).
+- Ajuste este arquivo com as práticas oficiais do agente **{agent}** conforme o
+  time as adota.
 """
 
 
@@ -155,8 +163,9 @@ def render_specs_readme(tracker: str) -> str:
     return f"""# specs/ — o backlog deste projeto
 
 Cada arquivo é uma spec: contexto, cenários BDD e métricas de sucesso. O fluxo:
-WorkItem no tracker ({tracker}) → passa no Readiness Gate → vira spec aqui →
-o coding agent implementa a spec `ready` → BDD verde fecha o `done`.
+WorkItem do planejamento do time ({_planning_label(tracker)}) → passa no Readiness
+Gate → vira spec aqui → o coding agent implementa a spec `ready` → BDD verde fecha
+o `done`.
 
 Credenciais ficam só no `.env` (nunca no specharness.yaml). Rode `specharness up`
 para ver o dashboard do projeto.
