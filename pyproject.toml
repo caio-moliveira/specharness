@@ -1,7 +1,11 @@
 [project]
-name = "specharness-workspace"
+# O pacote público instalável (SPEC-021): `pip install specharness` / `uv add
+# specharness` puxa os cinco sub-pacotes e o dashboard embutido (via server).
+name = "specharness"
 version = "0.1.0"
 description = "specharness — decision, quality and metrics layer for spec-driven development with coding agents"
+readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
   "specharness-core",
@@ -10,6 +14,13 @@ dependencies = [
   "specharness-metrics",
   "specharness-adapters",
 ]
+
+[project.scripts]
+specharness = "specharness_cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/caio-moliveira/specharness"
+Repository = "https://github.com/caio-moliveira/specharness"
 
 [build-system]
 requires = ["hatchling"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from specharness_server import static
 from specharness_server.static import dashboard_dir, mount_dashboard
 
 
@@ -33,8 +34,9 @@ def test_root_serves_dashboard_when_built(tmp_path, monkeypatch):
 
 
 def test_root_gives_hint_when_not_built(tmp_path, monkeypatch):
-    # override aponta para um diretório sem index.html; cwd sem web/dist.
+    # Nenhuma das três origens resolve: override vazio, pacote sem _web, cwd sem web/dist.
     monkeypatch.setenv("SPECHARNESS_WEB_DIST", str(tmp_path))
+    monkeypatch.setattr(static, "_PACKAGED", tmp_path / "sem-build")
     monkeypatch.chdir(tmp_path)
 
     assert dashboard_dir() is None

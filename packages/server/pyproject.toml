@@ -21,3 +21,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/specharness_server"]
+# O dashboard compilado (SPEC-021) é um artefato de build gitignored; `artifacts`
+# garante que o wheel o inclua mesmo assim. O release roda `just build-web` antes.
+artifacts = ["src/specharness_server/_web/**"]
