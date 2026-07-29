@@ -28,14 +28,34 @@ docs, trackers and improvised agent setups:
    sprint reports, living documentation.
 
 **Bring your own everything:** your database (SQLite default, Postgres
-optional), your tracker (Redmine, GitHub Issues — Jira/Azure DevOps next),
-your git provider, your coding agent (Claude Code, Codex, Kimi) and your LLM
-(any API provider or local models via Ollama). Self-hosted, your data stays
-with you.
+optional), your tracker (Redmine, GitHub Issues, Jira Cloud — Azure DevOps
+next), your git provider, your coding agent (Claude Code, Codex, Kimi) and
+your LLM (any API provider or local models via Ollama). Self-hosted, your
+data stays with you.
 
 **The thesis, verifiable in your own data:** specs that enter ready produce
 code that survives. specharness instruments the correlation
 *readiness × turnover × perception* end to end.
+
+## See it running
+
+The dashboard below is specharness observing **its own development** (real
+dogfooding data): specs by status from the registry, sprint metrics from git +
+CI artifacts, and a hygiene banner for commits missing a `Spec:` trailer.
+Every number carries a provenance chip — nothing is self-reported.
+
+<p align="center">
+  <img src="docs/assets/dashboard.gif" width="820" alt="specharness dashboard — big picture with real dogfooding data, switching between English and pt-BR">
+</p>
+
+<details>
+<summary>Static screenshots (EN / pt-BR)</summary>
+
+![Dashboard in English](docs/assets/dashboard-en.jpg)
+
+![Dashboard em português](docs/assets/dashboard-pt-br.jpg)
+
+</details>
 
 ## Status
 
