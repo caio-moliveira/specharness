@@ -159,3 +159,15 @@ def test_pipeline_stages_carry_translation_keys_and_counts(client):
     assert by_stage["commits"]["detail_count"] == 1  # commit do seed vinculado
     assert by_stage["bdd"]["detail_count"] == 0  # sem scenario runs no seed
     assert by_stage["perception"]["detail_count"] == 1  # amostra do seed
+
+
+# ADR-008 sobre respostas POPULADAS (seed) — pega vazamento em campo que carrega
+# dado, que o teste dia-um (banco vazio) não pegaria (SPEC-024, ressalva).
+_INDIVIDUAL_HINTS = ("author", "respondent", "assignee", "committer", "email", "@")
+
+
+def test_no_individual_data_over_populated_dashboard(client):
+    for path in ("/api/big-picture", "/api/specs/SPEC-013/pipeline"):
+        raw = client.get(path).text.lower()
+        for hint in _INDIVIDUAL_HINTS:
+            assert hint not in raw, f"{hint!r} vazou em {path}"

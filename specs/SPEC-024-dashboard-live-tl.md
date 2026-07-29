@@ -1,7 +1,7 @@
 ---
 spec: SPEC-024
 title: "Dashboard live do Tech Lead sobre o repo do usuário"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29
