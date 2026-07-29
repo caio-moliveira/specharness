@@ -1,10 +1,11 @@
 ---
 spec: SPEC-021
 title: "Distribuição PyPI e boot único: pip install + specharness up"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29
+updated: 2026-07-29
 sprint: 2026-C1
 tracker_refs: []
 depends_on: [SPEC-016]
