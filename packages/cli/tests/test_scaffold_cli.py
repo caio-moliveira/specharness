@@ -72,3 +72,28 @@ def test_installed_hook_blocks_commit_without_trailer(tmp_path, monkeypatch):
 
     passed = _git(["commit", "-m", "feat: com trailer\n\nSpec: SPEC-001"], tmp_path)
     assert passed.returncode == 0  # com trailer, passou
+
+
+def test_init_preserves_existing_instruction_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "AGENTS.md").write_text("MEU CONTEÚDO", encoding="utf-8")
+    result = runner.invoke(app, _init_args())
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "MEU CONTEÚDO"  # não clobrou
+    assert "preservado" in result.output.lower()
+
+
+def test_init_force_overwrites_instruction_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "AGENTS.md").write_text("MEU CONTEÚDO", encoding="utf-8")
+    runner.invoke(app, [*_init_args(), "--force"])
+    assert "Readiness Gate" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+
+
+def test_init_preserves_existing_commit_hook(tmp_path, monkeypatch):
+    _git(["init"], tmp_path)
+    hook = tmp_path / ".git" / "hooks" / "commit-msg"
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, _init_args())
+    assert hook.read_text(encoding="utf-8") == "#!/bin/sh\nexit 0\n"  # hook do usuário intacto
+    assert "preservado" in result.output.lower()

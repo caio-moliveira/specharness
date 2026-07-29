@@ -45,7 +45,9 @@ class ScaffoldParams:
 
 def render_agents_md(tracker: str, params: ScaffoldParams) -> str:
     """O AGENTS.md base: espinha fixa do método + parâmetros do time (SPEC-023)."""
-    planning = "GitHub" if tracker == "github-issues" else tracker
+    planning = {"github-issues": "GitHub", "none": "o backlog local em specs/"}.get(
+        tracker, tracker
+    )
     return f"""# Guia para Agentes de Código (gerado por specharness init)
 
 Este repositório usa **Spec-Driven Development** instrumentado pelo specharness:
@@ -134,6 +136,48 @@ para ver o dashboard do projeto.
 """
 
 
+#: Nome do arquivo da spec-semente gerada (o usuário renomeia/substitui).
+SEED_SPEC_FILE = "specs/SPEC-000-exemplo.md"
+
+
+def render_spec_template(bdd_language: str = "pt") -> str:
+    """Uma spec-semente VÁLIDA no schema (SPEC-001 §7) — ponto de partida do time.
+
+    Gerar isto torna a métrica 'arquivos gerados passam no schema' mensurável e dá
+    ao usuário um exemplo real para copiar.
+    """
+    return f"""---
+spec: SPEC-000
+title: "Exemplo — substitua pela sua primeira spec"
+status: draft
+type: feature
+owner: voce
+created: 2026-01-01
+success_metrics:
+  - "Defina uma métrica mensurável (número, limiar ou taxa)"
+acceptance:
+  - Descreva um critério de aceite verificável por máquina ou inspeção
+---
+
+## Contexto
+
+Spec-semente gerada por `specharness init`. Substitua pelo seu primeiro caso
+real: uma feature = uma spec, com cenários BDD e métricas mensuráveis.
+
+## Cenários (BDD)
+
+```gherkin
+# language: {bdd_language}
+Funcionalidade: exemplo
+
+  Cenário: um comportamento observável
+    Dado um contexto inicial
+    Quando uma ação acontece
+    Então um resultado verificável é observado
+```
+"""
+
+
 def scaffold_files(agent: str, tracker: str, params: ScaffoldParams) -> dict[str, str]:
     """Mapa caminho-relativo → conteúdo dos arquivos a escrever no repo do usuário.
 
@@ -148,4 +192,5 @@ def scaffold_files(agent: str, tracker: str, params: ScaffoldParams) -> dict[str
         "AGENTS.md": render_agents_md(tracker, params),
         AGENT_LAYER_FILE[agent]: render_agent_layer(agent, tracker),
         "specs/README.md": render_specs_readme(tracker),
+        SEED_SPEC_FILE: render_spec_template(params.bdd_language),
     }

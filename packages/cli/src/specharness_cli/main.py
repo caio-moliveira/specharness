@@ -256,26 +256,40 @@ def _scaffold_env(path: Path, names: list[str]) -> list[str]:
     return missing
 
 
-def _write_scaffold_files(root: Path, files: dict[str, str]) -> list[str]:
-    """Escreve os arquivos de instrução (idempotente: pula os idênticos)."""
+def _write_scaffold_files(
+    root: Path, files: dict[str, str], force: bool
+) -> tuple[list[str], list[str]]:
+    """Escreve os arquivos de instrução. NUNCA sobrescreve um arquivo já existente
+    com conteúdo diferente (perda de dados) sem `force` — preserva e devolve a lista.
+    """
     written: list[str] = []
+    preserved: list[str] = []
     for relpath, content in files.items():
         path = root / relpath
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and not force and path.read_text(encoding="utf-8") != content:
+            preserved.append(relpath)
+            continue
         if _write_config(path, content):
             written.append(relpath)
-    return written
+    return written, preserved
 
 
-def _install_commit_hook(root: Path) -> bool:
-    """Instala o hook commit-msg no git do usuário; False se não há .git aqui."""
+def _install_commit_hook(root: Path, force: bool) -> str:
+    """Instala o hook commit-msg. Não clobra um hook existente diferente sem force.
+
+    Devolve: 'installed' | 'preserved' | 'no-git'.
+    """
     hooks_dir = root / ".git" / "hooks"
     if not hooks_dir.is_dir():
-        return False
+        return "no-git"
     hook = hooks_dir / "commit-msg"
-    hook.write_text(render_commit_msg_hook(), encoding="utf-8")
+    content = render_commit_msg_hook()
+    if hook.exists() and not force and hook.read_text(encoding="utf-8") != content:
+        return "preserved"
+    hook.write_text(content, encoding="utf-8")
     hook.chmod(0o755)
-    return True
+    return "installed"
 
 
 @app.command()
@@ -288,6 +302,9 @@ def init(
     coverage_min: int = typer.Option(85, help="cobertura mínima do código de domínio (%)"),
     commit_convention: str = typer.Option("conventional", help="convenção de commit"),
     bdd_language: str = typer.Option("pt", help="linguagem do BDD (Gherkin)"),
+    force: bool = typer.Option(
+        False, "--force", help="sobrescreve arquivos de instrução/hook já existentes"
+    ),
     non_interactive: bool = typer.Option(
         False, "--non-interactive", "-y", help="não pergunta; usa as flags e os defaults"
     ),
@@ -315,8 +332,8 @@ def init(
         commit_convention=commit_convention, coverage_min=coverage_min, bdd_language=bdd_language
     )
     files = scaffold_files(selections.agent, selections.tracker, params)
-    _write_scaffold_files(root, files)
-    hooked = _install_commit_hook(root)
+    written, preserved = _write_scaffold_files(root, files, force)
+    hook_status = _install_commit_hook(root, force)
 
     console.print(
         f"✓ {CONFIG_FILENAME} {'gravado' if changed else 'já estava atualizado'}.", markup=False
@@ -327,9 +344,22 @@ def init(
         )
     else:
         console.print("✓ .env: nada a adicionar.", markup=False)
-    console.print(f"✓ harness do agente gerado: {', '.join(files)}", markup=False)
-    if hooked:
+    if written:
+        console.print(f"✓ harness: gerado(s) {', '.join(written)}", markup=False)
+    if preserved:
+        console.print(
+            f"• preservado(s) — já existiam, use --force para sobrescrever: {', '.join(preserved)}",
+            markup=False,
+            style="yellow",
+        )
+    if not written and not preserved:
+        console.print("✓ harness: já estava atualizado.", markup=False)
+    if hook_status == "installed":
         console.print("✓ hook de commit-msg instalado (trailer Spec: obrigatório).", markup=False)
+    elif hook_status == "preserved":
+        console.print(
+            "• hook commit-msg já existente preservado (use --force).", markup=False, style="yellow"
+        )
     else:
         console.print("• sem .git aqui — hook de commit-msg não instalado.", markup=False)
     console.print(

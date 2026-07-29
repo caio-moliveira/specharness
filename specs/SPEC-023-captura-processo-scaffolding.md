@@ -1,7 +1,7 @@
 ---
 spec: SPEC-023
 title: "Captura de processo e scaffolding do harness no repo do usuário"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29

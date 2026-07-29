@@ -5,13 +5,16 @@ from __future__ import annotations
 import subprocess
 
 import pytest
+from specharness_core import parse_spec
 from specharness_core.onboarding import OPTIONS
 from specharness_core.scaffold import (
     AGENT_LAYER_FILE,
     FIXED_SPINE,
+    SEED_SPEC_FILE,
     ScaffoldParams,
     render_agents_md,
     render_commit_msg_hook,
+    render_spec_template,
     scaffold_files,
 )
 
@@ -59,3 +62,15 @@ def test_commit_hook_blocks_without_trailer_and_passes_with(tmp_path):
 
     assert subprocess.run(["sh", str(hook), str(bad)]).returncode == 1
     assert subprocess.run(["sh", str(hook), str(good)]).returncode == 0
+
+
+def test_seed_spec_is_schema_valid():
+    # A métrica "arquivos gerados passam no schema" precisa de um artefato que o
+    # schema DE FATO valide — a spec-semente.
+    parsed = parse_spec(render_spec_template())  # não levanta => válido
+    assert parsed.spec_id == "SPEC-000"
+    assert parsed.gherkin_blocks  # traz cenário BDD
+
+
+def test_scaffold_includes_seed_spec():
+    assert SEED_SPEC_FILE in scaffold_files("claude-code", "jira", ScaffoldParams())
