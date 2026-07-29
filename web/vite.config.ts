@@ -5,7 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // O dev server do backend (SPEC-016) sobe em 8321; o cliente gerado aponta
-    // para lá via VITE_API_BASE_URL. Sem env, usa o mesmo host.
+    // O backend sobe em 8321; em dev o cliente aponta para lá via
+    // VITE_API_BASE_URL (web/.env.development). No build de produção a var some e
+    // o cliente usa a mesma origem que serve a página (SPEC-028).
   },
 });

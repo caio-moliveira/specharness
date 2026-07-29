@@ -1,7 +1,7 @@
 ---
 spec: SPEC-028
 title: "Dashboard embutido chama o próprio servidor (same-origin)"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29
