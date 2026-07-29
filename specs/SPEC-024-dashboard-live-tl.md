@@ -1,10 +1,11 @@
 ---
 spec: SPEC-024
 title: "Dashboard live do Tech Lead sobre o repo do usuário"
-status: draft
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29
+updated: 2026-07-29
 sprint: 2026-C1
 tracker_refs: []
 depends_on: [SPEC-016, SPEC-018]
@@ -36,6 +37,11 @@ Decisões (a fechar no readiness):
   real.
 - A anti-vigilância é preservada (ADR-008): agregados de processo/spec/agente,
   nunca o indivíduo. Cada número mantém o chip de proveniência (ADR-017).
+- Boa parte do contrato (`data_source=live` default, demo com flag, agregados,
+  proveniência) já vem da SPEC-021 (`up`) reusando SPEC-016/018. A SPEC-024 TRAVA
+  esse contrato com testes e garante o **dia-um**: o dashboard do TL funciona com
+  banco vazio e só a spec-semente do `init`, sem crash — o usuário vê o funil já
+  no primeiro `specharness up`, antes de ingerir qualquer métrica.
 
 ## Fora de escopo
 
@@ -68,4 +74,9 @@ Funcionalidade: dashboard live do Tech Lead
     Dado o dashboard live carregado
     Quando qualquer endpoint do dashboard é consultado
     Então nenhuma resposta contém métrica em nível de indivíduo
+
+  Cenário: dia-um do usuário, com banco vazio
+    Dado um repositório recém-inicializado, com banco vazio e só a spec-semente
+    Quando o Tech Lead abre o dashboard live
+    Então o funil mostra a spec-semente e as métricas ficam vazias, sem erro
 ```
