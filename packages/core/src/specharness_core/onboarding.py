@@ -16,7 +16,9 @@ from .ports.database import DATABASE_URL_ENV
 from .ports.llm import (
     ANTHROPIC_API_KEY_ENV,
     AZURE_API_KEY_ENV,
+    AZURE_API_VERSION_ENV,
     AZURE_ENDPOINT_ENV,
+    DEFAULT_MODELS,
     OLLAMA_BASE_URL_ENV,
     OPENAI_API_KEY_ENV,
 )
@@ -59,16 +61,8 @@ SECRET_ENV: dict[tuple[str, str], tuple[str, ...]] = {
     ("agent", "kimi"): (),
     ("llm", "anthropic"): (ANTHROPIC_API_KEY_ENV,),
     ("llm", "openai"): (OPENAI_API_KEY_ENV,),
-    ("llm", "azure"): (AZURE_API_KEY_ENV, AZURE_ENDPOINT_ENV),
+    ("llm", "azure"): (AZURE_API_KEY_ENV, AZURE_ENDPOINT_ENV, AZURE_API_VERSION_ENV),
     ("llm", "ollama"): (OLLAMA_BASE_URL_ENV,),
-}
-
-#: Modelo default sugerido por provedor (litellm). Scaffold — o time ajusta.
-DEFAULT_MODEL: dict[str, str] = {
-    "anthropic": "anthropic/claude-sonnet-4-6",
-    "openai": "openai/gpt-4o",
-    "azure": "azure/gpt-4o",
-    "ollama": "ollama/llama3.2",
 }
 
 
@@ -125,7 +119,8 @@ def render_config(selections: Selections) -> str:
         lines.append(f"  {category}: {chosen[category]}")
     lines += [
         "llm:",
-        f"  default: {DEFAULT_MODEL[selections.llm]}",
+        # Fonte única: o mesmo default do runtime (ports/llm), sem divergir (SPEC-027).
+        f"  default: {DEFAULT_MODELS[selections.llm]}",
         "",
     ]
     return "\n".join(lines)

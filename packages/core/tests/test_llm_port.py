@@ -10,6 +10,7 @@ import pytest
 from specharness_core.config import RoutingConfig
 from specharness_core.ports.llm import (
     AZURE_API_KEY_ENV,
+    AZURE_API_VERSION_ENV,
     AZURE_ENDPOINT_ENV,
     DEFAULT_OLLAMA_BASE_URL,
     OLLAMA_BASE_URL_ENV,
@@ -106,6 +107,25 @@ def test_azure_endpoint_becomes_the_base_url():
 def test_azure_without_endpoint_is_rejected():
     with pytest.raises(InvalidLLMConfig):
         resolve_model_target("azure/gpt-4o", {AZURE_API_KEY_ENV: "k"})
+
+
+def test_azure_without_api_version_is_rejected():
+    # O litellm exige api_version no azure; resolver sem ela é erro acionável, não
+    # um traceback do provider mais tarde (SPEC-027).
+    env = {AZURE_API_KEY_ENV: "k", AZURE_ENDPOINT_ENV: "https://corp.openai.azure.com"}
+    with pytest.raises(InvalidLLMConfig):
+        resolve_model_target("azure/deploy", env)
+
+
+def test_azure_carries_api_version_from_the_environment():
+    env = {
+        AZURE_API_KEY_ENV: "k",
+        AZURE_ENDPOINT_ENV: "https://corp.openai.azure.com",
+        AZURE_API_VERSION_ENV: "2024-06-01",
+    }
+    target = resolve_model_target("azure/deploy", env)
+    assert target.api_version == "2024-06-01"
+    assert target.base_url == "https://corp.openai.azure.com"
 
 
 def test_openai_gateway_base_url_is_honored():
