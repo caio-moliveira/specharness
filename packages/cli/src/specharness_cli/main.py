@@ -111,6 +111,13 @@ from specharness_core.ports.tracker import (
     TrackerAuthenticationFailed,
     TrackerError,
 )
+from specharness_core.scaffold import (
+    ScaffoldParams,
+    block_files,
+    merge_block,
+    render_commit_msg_hook,
+    starter_files,
+)
 
 app = typer.Typer(
     name="specharness",
@@ -251,6 +258,57 @@ def _scaffold_env(path: Path, names: list[str]) -> list[str]:
     return missing
 
 
+def _write_block_files(root: Path, blocks: dict[str, str]) -> list[str]:
+    """Mescla o bloco gerenciado em cada arquivo, preservando o conteúdo do usuário.
+
+    Devolve os arquivos que mudaram (novo, bloco inserido ou bloco atualizado).
+    """
+    changed: list[str] = []
+    for relpath, block in blocks.items():
+        path = root / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = path.read_text(encoding="utf-8") if path.exists() else None
+        merged = merge_block(existing, block)
+        if merged != (existing or ""):
+            path.write_text(merged, encoding="utf-8")
+            changed.append(relpath)
+    return changed
+
+
+def _write_starter_files(
+    root: Path, files: dict[str, str], force: bool
+) -> tuple[list[str], list[str]]:
+    """Arquivos semente: cria se ausente; nunca sobrescreve conteúdo do usuário sem force."""
+    written: list[str] = []
+    preserved: list[str] = []
+    for relpath, content in files.items():
+        path = root / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and not force and path.read_text(encoding="utf-8") != content:
+            preserved.append(relpath)
+            continue
+        if _write_config(path, content):
+            written.append(relpath)
+    return written, preserved
+
+
+def _install_commit_hook(root: Path, force: bool) -> str:
+    """Instala o hook commit-msg. Não clobra um hook existente diferente sem force.
+
+    Devolve: 'installed' | 'preserved' | 'no-git'.
+    """
+    hooks_dir = root / ".git" / "hooks"
+    if not hooks_dir.is_dir():
+        return "no-git"
+    hook = hooks_dir / "commit-msg"
+    content = render_commit_msg_hook()
+    if hook.exists() and not force and hook.read_text(encoding="utf-8") != content:
+        return "preserved"
+    hook.write_text(content, encoding="utf-8")
+    hook.chmod(0o755)
+    return "installed"
+
+
 @app.command()
 def init(
     tracker: str | None = typer.Option(None, help="tracker: github-issues|redmine|jira|none"),
@@ -258,15 +316,22 @@ def init(
     db: str | None = typer.Option(None, help="db: sqlite|postgres"),
     agent: str | None = typer.Option(None, help="coding agent: claude-code|codex|kimi"),
     llm: str | None = typer.Option(None, help="llm: anthropic|openai|azure|ollama"),
+    coverage_min: int = typer.Option(85, help="cobertura mínima do código de domínio (%)"),
+    commit_convention: str = typer.Option("conventional", help="convenção de commit"),
+    bdd_language: str = typer.Option("pt", help="linguagem do BDD (Gherkin)"),
+    force: bool = typer.Option(
+        False, "--force", help="sobrescreve arquivos de instrução/hook já existentes"
+    ),
     non_interactive: bool = typer.Option(
         False, "--non-interactive", "-y", help="não pergunta; usa as flags e os defaults"
     ),
 ) -> None:
     """Configura o specharness no seu repo: seleciona as ferramentas, grava o
-    specharness.yaml e guia o .env (SPEC-022).
+    specharness.yaml, guia o .env (SPEC-022) e gera o harness do agente (SPEC-023).
 
     Credenciais NUNCA vão para o yaml — só os NOMES das env vars entram no .env,
-    que é garantido no .gitignore antes de qualquer sugestão (ADR-006).
+    que é garantido no .gitignore antes de qualquer sugestão (ADR-006). Os arquivos
+    de instrução carregam a espinha fixa do método, não desligável (ADR-021).
     """
     provided = {"tracker": tracker, "git": git, "db": db, "agent": agent, "llm": llm}
     try:
@@ -280,6 +345,15 @@ def init(
     changed = _write_config(root / CONFIG_FILENAME, render_config(selections))
     added = _scaffold_env(root / ".env", env_vars_for(selections))
 
+    params = ScaffoldParams(
+        commit_convention=commit_convention, coverage_min=coverage_min, bdd_language=bdd_language
+    )
+    blocks = block_files(selections.agent, selections.tracker, params)
+    starters = starter_files(selections.tracker, params)
+    block_changed = _write_block_files(root, blocks)
+    written, preserved = _write_starter_files(root, starters, force)
+    hook_status = _install_commit_hook(root, force)
+
     console.print(
         f"✓ {CONFIG_FILENAME} {'gravado' if changed else 'já estava atualizado'}.", markup=False
     )
@@ -289,6 +363,30 @@ def init(
         )
     else:
         console.print("✓ .env: nada a adicionar.", markup=False)
+    if block_changed:
+        console.print(
+            f"✓ harness: bloco inserido/atualizado em {', '.join(block_changed)} "
+            "(conteúdo existente preservado).",
+            markup=False,
+        )
+    else:
+        console.print("✓ harness: bloco já estava atualizado.", markup=False)
+    if written:
+        console.print(f"✓ semente: gerado(s) {', '.join(written)}", markup=False)
+    if preserved:
+        console.print(
+            f"• semente preservada — já existia, use --force: {', '.join(preserved)}",
+            markup=False,
+            style="yellow",
+        )
+    if hook_status == "installed":
+        console.print("✓ hook de commit-msg instalado (trailer Spec: obrigatório).", markup=False)
+    elif hook_status == "preserved":
+        console.print(
+            "• hook commit-msg já existente preservado (use --force).", markup=False, style="yellow"
+        )
+    else:
+        console.print("• sem .git aqui — hook de commit-msg não instalado.", markup=False)
     console.print(
         "  Preencha os valores no .env (já ignorado pelo git). Depois rode `specharness up`.",
         markup=False,

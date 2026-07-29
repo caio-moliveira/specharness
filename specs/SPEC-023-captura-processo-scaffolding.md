@@ -1,10 +1,11 @@
 ---
 spec: SPEC-023
 title: "Captura de processo e scaffolding do harness no repo do usuário"
-status: draft
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29
+updated: 2026-07-29
 sprint: 2026-C1
 tracker_refs: []
 depends_on: [SPEC-022]
@@ -20,6 +21,7 @@ acceptance:
   - Gera os hooks de enforcement (trailer Spec:, validação de schema de spec) no git do usuário
   - A espinha fixa do método é sempre incluída e nunca desligável pelas respostas
   - "Os arquivos gerados declaram de onde o agente puxa o trabalho: o próximo spec ready, derivado do tracker"
+  - Se AGENTS.md ou a camada do agente já existem, o bloco do harness é inserido/atualizado sem apagar o conteúdo do usuário
 ---
 
 ## Contexto
@@ -38,11 +40,20 @@ Decisões (a fechar no readiness):
 - Saída no repo do usuário: `AGENTS.md` (base), a camada do agente selecionado
   (ex.: `CLAUDE.md` para Claude Code, de `profiles/<agente>`), hooks de
   commit-msg (trailer) e de schema de spec, e um `specs/` semente.
+- `AGENTS.md` e a camada do agente usam um **bloco gerenciado** (delimitado por
+  marcadores): se o arquivo já existe, o bloco do harness é inserido no fim ou
+  atualizado no lugar — o conteúdo do usuário nunca é apagado. Hook e arquivos
+  semente são criados-se-ausentes (preservados), com `--force` para sobrescrever.
 - A espinha fixa — readiness gate, trailer `Spec:`, BDD travando `done`, métricas
   que nunca expõem indivíduos (ADR-006/008/016) — entra sempre. Parâmetros
   ajustam limiares e convenções, não a existência dos gates.
 - O fluxo do agente é declarado: implementar o próximo spec `ready`, derivado do
   WorkItem do tracker (ADR-020).
+- "Onde vive o planejamento" reusa o tracker que a SPEC-022 já gravou no bloco
+  `init:` — o scaffolding lê essa seleção, não re-pergunta.
+- Os parâmetros de processo (convenção de commit, cobertura mínima, linguagem do
+  BDD) entram por flags com default, mantendo os prompts focados nas ferramentas;
+  PR rules e métricas objetivas entram como defaults da espinha fixa no AGENTS.md.
 
 ## Fora de escopo
 
@@ -80,4 +91,9 @@ Funcionalidade: scaffolding do harness a partir do processo do time
     Dado um repositório scaffolded
     Quando os arquivos de instrução são lidos
     Então eles apontam o próximo spec ready, derivado do tracker, como a fonte do trabalho do agente
+
+  Cenário: AGENTS.md preexistente do usuário é preservado
+    Dado um AGENTS.md com conteúdo próprio do usuário
+    Quando o scaffolding é executado
+    Então o bloco do harness é adicionado e o conteúdo original permanece intacto
 ```
