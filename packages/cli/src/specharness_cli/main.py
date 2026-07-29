@@ -149,6 +149,45 @@ llm_app = typer.Typer(
 app.add_typer(llm_app, name="llm")
 
 
+def _run_server(host: str, port: int) -> None:  # pragma: no cover - wrapper fino do uvicorn
+    import uvicorn
+
+    uvicorn.run("specharness_server.app:app", host=host, port=port)
+
+
+@app.command()
+def up(
+    host: str = typer.Option("127.0.0.1", help="host de bind"),
+    port: int = typer.Option(8321, help="porta única para API + dashboard"),
+    demo: bool = typer.Option(
+        False, "--demo", help="serve dados de demonstração (seed), rotulados"
+    ),
+) -> None:
+    """Sobe API + dashboard numa porta só (SPEC-021).
+
+    Faz um preflight do banco: se ele não estiver acessível/migrado, encerra com
+    orientação para rodar o init, em vez de um stack trace.
+    """
+    if demo:
+        os.environ["SPECHARNESS_DEMO"] = "1"
+    try:
+        gateway_from_env().migrate()
+    except DatabaseError as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        err_console.print(
+            "  Banco indisponível. Rode `specharness init` (ou `specharness connect db`) "
+            "antes do up.",
+            markup=False,
+            style="yellow",
+        )
+        raise typer.Exit(1) from None
+    console.print(
+        f"✓ specharness em http://{host}:{port}  (dashboard na raiz · API em /api · docs em /docs)",
+        markup=False,
+    )
+    _run_server(host, port)
+
+
 @app.command()
 def version() -> None:
     """Show specharness version."""

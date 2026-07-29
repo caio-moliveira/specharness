@@ -1,7 +1,7 @@
 ---
 spec: SPEC-021
 title: "Distribuição PyPI e boot único: pip install + specharness up"
-status: draft
+status: in_progress
 type: feature
 owner: caio
 created: 2026-07-29
@@ -20,6 +20,7 @@ acceptance:
   - A raiz (GET /) serve o dashboard e as rotas /api e /docs continuam funcionando
   - O dashboard compilado vai embutido no wheel como package data, sem exigir Node no usuário
   - O artefato publicável não contém segredos nem arquivos de desenvolvimento
+  - specharness up sem banco configurado encerra com erro acionável orientando o init, sem stack trace
 ---
 
 ## Contexto
@@ -37,14 +38,17 @@ Decisões de empacotamento (a fechar no readiness):
 - O build do web (Vite → `dist/`) roda ao gerar o wheel, via build hook, e o
   `dist/` entra como package data. Em runtime a API monta o estático com fallback
   de SPA (index.html para rotas não-/api), e `GET /` passa a servir o dashboard.
-- `specharness up` serve os DADOS REAIS por padrão (modo live); o modo demo (seed)
-  fica atrás de flag explícito (ADR-019).
+- `specharness up` faz o boot do servidor servindo o estático; a semântica de
+  *live por padrão vs demo* é da SPEC-024. Aqui basta que `up` suba e sirva.
+- **Node é requisito de build-time** (compilar o dashboard para o wheel), no
+  ambiente de release/CI. O runtime do usuário nunca precisa de Node.
 
 ## Fora de escopo
 
 - Publicar de fato no PyPI (é passo de release) — aqui o alvo é o artefato
   construível e instalável, validado localmente / TestPyPI.
 - Empacotar como container Docker — pode vir depois, não é o caminho principal.
+- O default live vs demo do dashboard — é a SPEC-024.
 
 ## Cenários (BDD)
 
@@ -71,4 +75,9 @@ Funcionalidade: instalação e boot único do specharness
     Dado o sdist e o wheel gerados
     Quando seu conteúdo é inspecionado
     Então nenhum arquivo .env, chave ou artefato de desenvolvimento está presente
+
+  Cenário: boot sem banco configurado falha com orientação
+    Dado o specharness instalado num repositório sem configuração de banco
+    Quando o usuário roda specharness up
+    Então o comando encerra com erro acionável orientando rodar o init, sem stack trace
 ```
