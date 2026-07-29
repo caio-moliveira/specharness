@@ -31,6 +31,33 @@ def _is_forbidden(name: str) -> bool:
     return base == ".env" or base.startswith("id_rsa") or base.endswith((".pem", ".key"))
 
 
+#: Rótulos internos do specharness que NUNCA podem chegar ao dashboard servido
+#: (SPEC-025): a fase do roadmap interno, IDs de spec internas usadas como rótulo,
+#: e as recipes internas do repo. Medido no artefato publicado, não só na fonte —
+#: um `_web` obsoleto embutido passaria batido nos testes de fonte.
+_INTERNAL_LABELS: tuple[str, ...] = (
+    "Fase A",
+    "SPEC-013",
+    "SPEC-014",
+    "just serve",
+    "just dev",
+)
+
+
+def _embedded_web_leaks(server_wheel: Path) -> list[str]:
+    """Rótulos internos que vazam no bundle embutido do wheel do server (SPEC-025)."""
+    leaks: list[str] = []
+    with zipfile.ZipFile(server_wheel) as zf:
+        for name in zf.namelist():
+            if "/_web/" not in name or not name.endswith((".js", ".css", ".html")):
+                continue
+            text = zf.read(name).decode("utf-8", errors="ignore")
+            for label in _INTERNAL_LABELS:
+                if label in text:
+                    leaks.append(f"rótulo interno {label!r} no dashboard servido ({name})")
+    return leaks
+
+
 def main(dist_dir: str | None = None) -> int:
     dist = Path(dist_dir or (sys.argv[1] if len(sys.argv) > 1 else "dist"))
     wheels = sorted(dist.glob("*.whl"))
@@ -46,6 +73,8 @@ def main(dist_dir: str | None = None) -> int:
         problems.append("wheel do specharness_server ausente")
     elif "specharness_server/_web/index.html" not in _members(server):
         problems.append("dashboard não embutido no wheel do server (_web/index.html ausente)")
+    else:
+        problems.extend(_embedded_web_leaks(server))
 
     for artifact in (*wheels, *sdists):
         for name in _members(artifact):
