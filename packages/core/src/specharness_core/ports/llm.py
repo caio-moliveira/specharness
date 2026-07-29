@@ -30,6 +30,9 @@ ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY"
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
 AZURE_API_KEY_ENV = "AZURE_OPENAI_API_KEY"
 AZURE_ENDPOINT_ENV = "AZURE_OPENAI_ENDPOINT"
+#: O roteamento azure do litellm EXIGE a api_version; sem ela a conexão falha
+#: (SPEC-027). Como base_url/api_key, é lida do ambiente, nunca de config.
+AZURE_API_VERSION_ENV = "AZURE_OPENAI_API_VERSION"
 OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
 OLLAMA_BASE_URL_ENV = "OLLAMA_BASE_URL"
 
@@ -132,6 +135,7 @@ class LLMTarget:
     model: str
     base_url: str | None = None
     api_key_env: str | None = None
+    api_version: str | None = None  # azure exige; não é segredo (SPEC-027)
 
     @property
     def requires_key(self) -> bool:
@@ -230,9 +234,12 @@ def _api_providers(env: Mapping[str, str]) -> list[ProviderCandidate]:
         )
     if _has(env, AZURE_API_KEY_ENV):
         endpoint = env.get(AZURE_ENDPOINT_ENV, "").strip() or None
+        api_version = env.get(AZURE_API_VERSION_ENV, "").strip() or None
         out.append(
             ProviderCandidate(
-                LLMTarget("azure", DEFAULT_MODELS["azure"], endpoint, AZURE_API_KEY_ENV),
+                LLMTarget(
+                    "azure", DEFAULT_MODELS["azure"], endpoint, AZURE_API_KEY_ENV, api_version
+                ),
                 needs_probe=False,
             )
         )
@@ -278,7 +285,10 @@ def resolve_model_target(model: str, env: Mapping[str, str]) -> LLMTarget:
         endpoint = env.get(AZURE_ENDPOINT_ENV, "").strip() or None
         if endpoint is None:
             raise InvalidLLMConfig.because(f"o provedor azure exige {AZURE_ENDPOINT_ENV}")
-        return LLMTarget("azure", model, endpoint, AZURE_API_KEY_ENV)
+        api_version = env.get(AZURE_API_VERSION_ENV, "").strip() or None
+        if api_version is None:
+            raise InvalidLLMConfig.because(f"o provedor azure exige {AZURE_API_VERSION_ENV}")
+        return LLMTarget("azure", model, endpoint, AZURE_API_KEY_ENV, api_version)
     if provider == "ollama":
         base = env.get(OLLAMA_BASE_URL_ENV, "").strip() or DEFAULT_OLLAMA_BASE_URL
         return LLMTarget("ollama", model, base, None)

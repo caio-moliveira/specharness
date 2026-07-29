@@ -78,6 +78,7 @@ class LiteLlmClient:
                 messages=[{"role": "user", "content": prompt}],
                 api_key=self._api_key,
                 base_url=self._target.base_url,
+                api_version=self._target.api_version,
                 timeout=self._timeout,
                 response_format=response_format,
                 stream=stream,

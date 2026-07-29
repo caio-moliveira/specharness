@@ -1,7 +1,7 @@
 ---
 spec: SPEC-027
 title: "Defaults de LLM unificados e Azure conectável de fábrica"
-status: approved
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29

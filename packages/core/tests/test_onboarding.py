@@ -14,6 +14,7 @@ from specharness_core.onboarding import (
     env_vars_for,
     render_config,
 )
+from specharness_core.ports.llm import DEFAULT_MODELS
 
 
 def _sel(**overrides: str) -> Selections:
@@ -54,6 +55,22 @@ def test_render_config_is_valid_and_hides_secret_names():
     assert "anthropic/claude-sonnet-4-6" in text
     for name in env_vars_for(_sel()):
         assert name not in text  # nome de credencial nunca entra no yaml
+
+
+def test_azure_selection_provisions_the_api_version_env():
+    # O litellm exige api_version no azure; o init tem de guiá-la no .env (SPEC-027).
+    names = env_vars_for(_sel(llm="azure"))
+    assert "AZURE_OPENAI_API_KEY" in names
+    assert "AZURE_OPENAI_ENDPOINT" in names
+    assert "AZURE_OPENAI_API_VERSION" in names
+
+
+def test_config_default_is_the_single_runtime_source_for_every_provider():
+    # O default gravado no yaml é idêntico ao que o runtime resolve — fonte única,
+    # sem divergência init × runtime (SPEC-027).
+    for provider in OPTIONS["llm"]:
+        text = render_config(_sel(llm=provider))
+        assert f"default: {DEFAULT_MODELS[provider]}" in text
 
 
 def test_render_config_is_idempotent():

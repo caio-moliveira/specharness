@@ -116,6 +116,28 @@ def test_base_url_reaches_the_completion_call():
     assert captured["base_url"] == "https://corp.openai.azure.com"
 
 
+def test_azure_api_version_reaches_the_completion_call():
+    # O roteamento azure do litellm exige api_version; ela tem de chegar na chamada
+    # (SPEC-027), não só ficar no .env.
+    captured: dict = {}
+
+    def capture(*, model, messages, response_format=None, stream=False, **kwargs):
+        captured.update(kwargs)
+        content = Ping(ok=True, message="ok").model_dump_json()
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+    target = LLMTarget(
+        "azure",
+        "azure/deploy",
+        "https://corp.openai.azure.com",
+        "AZURE_OPENAI_API_KEY",
+        "2024-06-01",
+    )
+    LiteLlmClient(target, {"AZURE_OPENAI_API_KEY": "k"}, completion_fn=capture).complete("oi")
+
+    assert captured["api_version"] == "2024-06-01"
+
+
 # --- fallback quando o default falha em runtime (critério A3) --------------
 
 
