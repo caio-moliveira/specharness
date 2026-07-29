@@ -1,7 +1,7 @@
 ---
 spec: SPEC-022
 title: "specharness init: wizard de conexões (tracker, git, db, agente, LLM)"
-status: in_progress
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-29

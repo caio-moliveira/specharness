@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 from specharness_core.config import load_routing
 from specharness_core.onboarding import (
+    CATEGORIES,
+    OPTIONS,
     InvalidSelection,
     Selections,
     env_vars_for,
@@ -60,3 +64,12 @@ def test_render_config_is_idempotent():
 def test_invalid_selection_is_rejected():
     with pytest.raises(InvalidSelection):
         _sel(tracker="asana")
+
+
+def test_no_credential_name_in_yaml_for_any_combination():
+    # A métrica "0 segredo no yaml" vale para QUALQUER combinação, não uma só.
+    for combo in itertools.product(*(OPTIONS[category] for category in CATEGORIES)):
+        selections = Selections(**dict(zip(CATEGORIES, combo, strict=True)))
+        text = render_config(selections)
+        for name in env_vars_for(selections):
+            assert name not in text

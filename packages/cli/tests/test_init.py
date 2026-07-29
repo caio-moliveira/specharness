@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from specharness_cli import main
 from specharness_cli.main import app
 from typer.testing import CliRunner
 
@@ -87,3 +88,31 @@ def test_init_rejects_invalid_selection(tmp_path, monkeypatch):
     result = runner.invoke(app, ["init", "-y", "--tracker", "asana"])
     assert result.exit_code == 1
     assert "asana" in result.output
+
+
+def test_init_gitignores_env_before_scaffolding(tmp_path, monkeypatch):
+    # AC4 é sobre ORDEM: no momento em que o .env é escrito, ele já deve estar
+    # protegido pelo .gitignore. Espiona o scaffold e checa o estado nesse instante.
+    monkeypatch.chdir(tmp_path)
+    protected_when_scaffolding: list[bool] = []
+    real_scaffold = main._scaffold_env
+
+    def spy(path, names):
+        gitignore = tmp_path / ".gitignore"
+        already = (
+            gitignore.exists() and ".env" in gitignore.read_text(encoding="utf-8").splitlines()
+        )
+        protected_when_scaffolding.append(already)
+        return real_scaffold(path, names)
+
+    monkeypatch.setattr(main, "_scaffold_env", spy)
+    runner.invoke(app, BASE)
+    assert protected_when_scaffolding == [True]  # .env já ignorado quando o scaffold rodou
+
+
+def test_init_interactive_prompts_read_stdin(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    answers = "jira\ngithub\npostgres\nclaude-code\nanthropic\n"
+    result = runner.invoke(app, ["init"], input=answers)
+    assert result.exit_code == 0
+    assert "tracker: jira" in (tmp_path / "specharness.yaml").read_text(encoding="utf-8")
