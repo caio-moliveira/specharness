@@ -9,13 +9,18 @@ from specharness_core import parse_spec
 from specharness_core.onboarding import OPTIONS
 from specharness_core.scaffold import (
     AGENT_LAYER_FILE,
+    BLOCK_BEGIN,
+    BLOCK_END,
     FIXED_SPINE,
     SEED_SPEC_FILE,
     ScaffoldParams,
+    block_files,
+    merge_block,
     render_agents_md,
     render_commit_msg_hook,
     render_spec_template,
-    scaffold_files,
+    starter_files,
+    wrap_block,
 )
 
 
@@ -23,16 +28,31 @@ def test_fixed_spine_present_for_any_agent_and_tracker():
     # A espinha fixa não é desligável: aparece em TODA combinação (cenário SPEC-023).
     for agent in OPTIONS["agent"]:
         for tracker in OPTIONS["tracker"]:
-            agents_md = scaffold_files(agent, tracker, ScaffoldParams())["AGENTS.md"]
+            agents_md = block_files(agent, tracker, ScaffoldParams())["AGENTS.md"]
             for marker in FIXED_SPINE:
                 assert marker in agents_md, f"{marker!r} sumiu para {agent}/{tracker}"
 
 
 def test_each_agent_gets_its_layer_file():
     for agent, filename in AGENT_LAYER_FILE.items():
-        files = scaffold_files(agent, "jira", ScaffoldParams())
+        files = block_files(agent, "jira", ScaffoldParams())
         assert filename in files  # camada específica do agente
         assert "AGENTS.md" in files  # base comum sempre presente
+
+
+def test_merge_block_creates_appends_and_updates_in_place():
+    block = wrap_block("HARNESS")
+    # arquivo ausente → só o bloco
+    assert BLOCK_BEGIN in merge_block(None, block)
+    # conteúdo do usuário sem bloco → anexa, preservando o original
+    merged = merge_block("MEU CONTEÚDO\n", block)
+    assert "MEU CONTEÚDO" in merged and BLOCK_BEGIN in merged
+    # já tem bloco → atualiza no lugar, sem duplicar
+    updated = merge_block(merged, wrap_block("NOVO"))
+    assert "MEU CONTEÚDO" in updated
+    assert updated.count(BLOCK_BEGIN) == 1
+    assert "NOVO" in updated and "HARNESS" not in updated
+    assert BLOCK_END in updated
 
 
 def test_params_flow_into_agents_md():
@@ -49,7 +69,7 @@ def test_work_pickup_is_declared():
 
 def test_unknown_agent_is_rejected():
     with pytest.raises(ValueError):
-        scaffold_files("cursor", "jira", ScaffoldParams())
+        block_files("cursor", "jira", ScaffoldParams())
 
 
 def test_commit_hook_blocks_without_trailer_and_passes_with(tmp_path):
@@ -73,4 +93,4 @@ def test_seed_spec_is_schema_valid():
 
 
 def test_scaffold_includes_seed_spec():
-    assert SEED_SPEC_FILE in scaffold_files("claude-code", "jira", ScaffoldParams())
+    assert SEED_SPEC_FILE in starter_files("jira", ScaffoldParams())

@@ -113,8 +113,10 @@ from specharness_core.ports.tracker import (
 )
 from specharness_core.scaffold import (
     ScaffoldParams,
+    block_files,
+    merge_block,
     render_commit_msg_hook,
-    scaffold_files,
+    starter_files,
 )
 
 app = typer.Typer(
@@ -256,12 +258,27 @@ def _scaffold_env(path: Path, names: list[str]) -> list[str]:
     return missing
 
 
-def _write_scaffold_files(
+def _write_block_files(root: Path, blocks: dict[str, str]) -> list[str]:
+    """Mescla o bloco gerenciado em cada arquivo, preservando o conteúdo do usuário.
+
+    Devolve os arquivos que mudaram (novo, bloco inserido ou bloco atualizado).
+    """
+    changed: list[str] = []
+    for relpath, block in blocks.items():
+        path = root / relpath
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = path.read_text(encoding="utf-8") if path.exists() else None
+        merged = merge_block(existing, block)
+        if merged != (existing or ""):
+            path.write_text(merged, encoding="utf-8")
+            changed.append(relpath)
+    return changed
+
+
+def _write_starter_files(
     root: Path, files: dict[str, str], force: bool
 ) -> tuple[list[str], list[str]]:
-    """Escreve os arquivos de instrução. NUNCA sobrescreve um arquivo já existente
-    com conteúdo diferente (perda de dados) sem `force` — preserva e devolve a lista.
-    """
+    """Arquivos semente: cria se ausente; nunca sobrescreve conteúdo do usuário sem force."""
     written: list[str] = []
     preserved: list[str] = []
     for relpath, content in files.items():
@@ -331,8 +348,10 @@ def init(
     params = ScaffoldParams(
         commit_convention=commit_convention, coverage_min=coverage_min, bdd_language=bdd_language
     )
-    files = scaffold_files(selections.agent, selections.tracker, params)
-    written, preserved = _write_scaffold_files(root, files, force)
+    blocks = block_files(selections.agent, selections.tracker, params)
+    starters = starter_files(selections.tracker, params)
+    block_changed = _write_block_files(root, blocks)
+    written, preserved = _write_starter_files(root, starters, force)
     hook_status = _install_commit_hook(root, force)
 
     console.print(
@@ -344,16 +363,22 @@ def init(
         )
     else:
         console.print("✓ .env: nada a adicionar.", markup=False)
+    if block_changed:
+        console.print(
+            f"✓ harness: bloco inserido/atualizado em {', '.join(block_changed)} "
+            "(conteúdo existente preservado).",
+            markup=False,
+        )
+    else:
+        console.print("✓ harness: bloco já estava atualizado.", markup=False)
     if written:
-        console.print(f"✓ harness: gerado(s) {', '.join(written)}", markup=False)
+        console.print(f"✓ semente: gerado(s) {', '.join(written)}", markup=False)
     if preserved:
         console.print(
-            f"• preservado(s) — já existiam, use --force para sobrescrever: {', '.join(preserved)}",
+            f"• semente preservada — já existia, use --force: {', '.join(preserved)}",
             markup=False,
             style="yellow",
         )
-    if not written and not preserved:
-        console.print("✓ harness: já estava atualizado.", markup=False)
     if hook_status == "installed":
         console.print("✓ hook de commit-msg instalado (trailer Spec: obrigatório).", markup=False)
     elif hook_status == "preserved":

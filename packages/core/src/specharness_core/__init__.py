@@ -69,8 +69,10 @@ from .scaffold import (
     AGENT_LAYER_FILE,
     FIXED_SPINE,
     ScaffoldParams,
+    block_files,
+    merge_block,
     render_commit_msg_hook,
-    scaffold_files,
+    starter_files,
 )
 from .specschema import (
     ParsedSpec,
@@ -164,8 +166,10 @@ __all__ = [
     "AGENT_LAYER_FILE",
     "FIXED_SPINE",
     "ScaffoldParams",
+    "block_files",
+    "merge_block",
     "render_commit_msg_hook",
-    "scaffold_files",
+    "starter_files",
 ]
 
 __version__ = "0.1.0"

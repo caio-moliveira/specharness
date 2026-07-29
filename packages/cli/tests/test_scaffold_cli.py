@@ -74,19 +74,24 @@ def test_installed_hook_blocks_commit_without_trailer(tmp_path, monkeypatch):
     assert passed.returncode == 0  # com trailer, passou
 
 
-def test_init_preserves_existing_instruction_file(tmp_path, monkeypatch):
+def test_init_appends_block_to_existing_agents_md(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "AGENTS.md").write_text("MEU CONTEÚDO", encoding="utf-8")
-    result = runner.invoke(app, _init_args())
-    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "MEU CONTEÚDO"  # não clobrou
-    assert "preservado" in result.output.lower()
+    (tmp_path / "AGENTS.md").write_text("# Meu AGENTS.md\n\nMEU CONTEÚDO\n", encoding="utf-8")
+    runner.invoke(app, _init_args())
+    text = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "MEU CONTEÚDO" in text  # conteúdo do usuário preservado
+    assert "Readiness Gate" in text  # bloco do harness adicionado
 
 
-def test_init_force_overwrites_instruction_file(tmp_path, monkeypatch):
+def test_init_block_is_idempotent(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "AGENTS.md").write_text("MEU CONTEÚDO", encoding="utf-8")
-    runner.invoke(app, [*_init_args(), "--force"])
-    assert "Readiness Gate" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("MEU CONTEÚDO\n", encoding="utf-8")
+    runner.invoke(app, _init_args())
+    once = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    runner.invoke(app, _init_args())
+    twice = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert once == twice  # re-rodar não duplica nem muda
+    assert twice.count("specharness:begin") == 1
 
 
 def test_init_preserves_existing_commit_hook(tmp_path, monkeypatch):

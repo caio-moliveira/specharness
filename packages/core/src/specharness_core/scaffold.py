@@ -33,6 +33,33 @@ AGENT_LAYER_FILE: dict[str, str] = {
     "kimi": "KIMI.md",
 }
 
+#: Marcadores do bloco gerenciado. O conteúdo do usuário fora do bloco nunca é
+#: tocado; o bloco é inserido no fim ou atualizado no lugar (idempotente).
+BLOCK_BEGIN = "<!-- specharness:begin — bloco gerado, não edite aqui dentro -->"
+BLOCK_END = "<!-- specharness:end -->"
+
+
+def wrap_block(content: str) -> str:
+    """Envolve o conteúdo do harness nos marcadores do bloco gerenciado."""
+    return f"{BLOCK_BEGIN}\n{content.strip(chr(10))}\n{BLOCK_END}"
+
+
+def merge_block(existing: str | None, block: str) -> str:
+    """Insere/atualiza o bloco no arquivo existente sem apagar o conteúdo do usuário.
+
+    - Arquivo ausente/vazio → só o bloco.
+    - Já tem o bloco → substitui no lugar (idempotente, não duplica).
+    - Tem conteúdo do usuário sem o bloco → anexa o bloco no fim, preservando tudo.
+    """
+    if not existing or not existing.strip():
+        return block + "\n"
+    begin = existing.find(BLOCK_BEGIN)
+    end = existing.find(BLOCK_END)
+    if begin != -1 and end != -1 and end > begin:
+        return existing[:begin] + block + existing[end + len(BLOCK_END) :]
+    base = existing if existing.endswith("\n") else existing + "\n"
+    return f"{base}\n{block}\n"
+
 
 @dataclass(frozen=True)
 class ScaffoldParams:
@@ -178,19 +205,29 @@ Funcionalidade: exemplo
 """
 
 
-def scaffold_files(agent: str, tracker: str, params: ScaffoldParams) -> dict[str, str]:
-    """Mapa caminho-relativo → conteúdo dos arquivos a escrever no repo do usuário.
+def block_files(agent: str, tracker: str, params: ScaffoldParams) -> dict[str, str]:
+    """Arquivos de instrução com BLOCO GERENCIADO — mesclados no conteúdo do usuário.
 
-    O hook de commit-msg NÃO está aqui: ele é instalado no `.git/hooks` pelo CLI,
-    porque precisa virar executável e vive fora da árvore versionada.
+    Devolve caminho-relativo → bloco (já envolto nos marcadores). O CLI usa
+    merge_block para inserir/atualizar sem apagar o que o usuário escreveu.
     """
     if agent not in AGENT_LAYER_FILE:
         raise ValueError(
             f"agente '{agent}' sem camada conhecida; use um de: {list(AGENT_LAYER_FILE)}"
         )
     return {
-        "AGENTS.md": render_agents_md(tracker, params),
-        AGENT_LAYER_FILE[agent]: render_agent_layer(agent, tracker),
+        "AGENTS.md": wrap_block(render_agents_md(tracker, params)),
+        AGENT_LAYER_FILE[agent]: wrap_block(render_agent_layer(agent, tracker)),
+    }
+
+
+def starter_files(tracker: str, params: ScaffoldParams) -> dict[str, str]:
+    """Arquivos semente — criados só se ausentes (nunca sobrescrevem o usuário).
+
+    O hook de commit-msg NÃO está aqui: é instalado no `.git/hooks` pelo CLI,
+    porque precisa virar executável e vive fora da árvore versionada.
+    """
+    return {
         "specs/README.md": render_specs_readme(tracker),
         SEED_SPEC_FILE: render_spec_template(params.bdd_language),
     }
