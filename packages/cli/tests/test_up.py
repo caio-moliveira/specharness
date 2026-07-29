@@ -10,8 +10,10 @@ runner = CliRunner()
 
 
 def test_up_help_mentions_port(monkeypatch):
-    # Sem TTY o Rich quebra o help em 80 colunas e trunca `--port`; fixa a largura
-    # (mesmo padrão de test_llm_test.py) para o assert ser estável no CI.
+    # No CI o typer/rich intercala ANSI e o substring cru não casa; sem cor e com
+    # terminal largo o texto é estável (mesmo padrão de test_llm_test.py).
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("TERM", "dumb")
     monkeypatch.setenv("COLUMNS", "200")
     result = runner.invoke(app, ["up", "--help"])
     assert result.exit_code == 0
