@@ -11,6 +11,7 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.prompt import Prompt
 from rich.table import Table
 from specharness_adapters.db import (
     MetricSnapshotStore,
@@ -85,6 +86,14 @@ from specharness_core.config import (
     load_readiness,
     load_routing,
     load_tracker,
+)
+from specharness_core.onboarding import (
+    CATEGORIES,
+    OPTIONS,
+    InvalidSelection,
+    Selections,
+    env_vars_for,
+    render_config,
 )
 from specharness_core.ports.database import DatabaseError
 from specharness_core.ports.llm import LLMError, onboarding_status
@@ -187,6 +196,103 @@ def up(
         markup=False,
     )
     _run_server(host, port)
+
+
+def _resolve_selections(provided: dict[str, str | None], non_interactive: bool) -> Selections:
+    chosen: dict[str, str] = {}
+    for category in CATEGORIES:
+        value = provided[category]
+        if value is None:
+            default = OPTIONS[category][0]
+            value = (
+                default
+                if non_interactive
+                else Prompt.ask(category, choices=list(OPTIONS[category]), default=default)
+            )
+        chosen[category] = value
+    return Selections(**chosen)  # valida no __post_init__
+
+
+def _ensure_env_gitignored(root: Path) -> None:
+    """Garante `.env` no .gitignore ANTES de sugerir qualquer credencial (AC4)."""
+    gitignore = root / ".gitignore"
+    lines = gitignore.read_text(encoding="utf-8").splitlines() if gitignore.exists() else []
+    if ".env" in {line.strip() for line in lines}:
+        return
+    with gitignore.open("a", encoding="utf-8") as handle:
+        if lines and lines[-1].strip():
+            handle.write("\n")
+        handle.write(".env\n")
+
+
+def _write_config(path: Path, content: str) -> bool:
+    """Escreve o yaml; devolve False (idempotente) se já estava idêntico."""
+    if path.exists() and path.read_text(encoding="utf-8") == content:
+        return False
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def _scaffold_env(path: Path, names: list[str]) -> list[str]:
+    """Acrescenta os nomes de env var que faltam; nunca toca valores existentes."""
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    present = {line.split("=", 1)[0].strip() for line in existing.splitlines() if "=" in line}
+    missing = [name for name in names if name not in present]
+    if not missing:
+        return []
+    with path.open("a", encoding="utf-8") as handle:
+        if existing and not existing.endswith("\n"):
+            handle.write("\n")
+        handle.write(
+            "\n# Credenciais das ferramentas selecionadas (specharness init) — preencha:\n"
+        )
+        for name in missing:
+            handle.write(f"{name}=\n")
+    return missing
+
+
+@app.command()
+def init(
+    tracker: str | None = typer.Option(None, help="tracker: github-issues|redmine|jira|none"),
+    git: str | None = typer.Option(None, help="git: github|none"),
+    db: str | None = typer.Option(None, help="db: sqlite|postgres"),
+    agent: str | None = typer.Option(None, help="coding agent: claude-code|codex|kimi"),
+    llm: str | None = typer.Option(None, help="llm: anthropic|openai|azure|ollama"),
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", "-y", help="não pergunta; usa as flags e os defaults"
+    ),
+) -> None:
+    """Configura o specharness no seu repo: seleciona as ferramentas, grava o
+    specharness.yaml e guia o .env (SPEC-022).
+
+    Credenciais NUNCA vão para o yaml — só os NOMES das env vars entram no .env,
+    que é garantido no .gitignore antes de qualquer sugestão (ADR-006).
+    """
+    provided = {"tracker": tracker, "git": git, "db": db, "agent": agent, "llm": llm}
+    try:
+        selections = _resolve_selections(provided, non_interactive)
+    except InvalidSelection as exc:
+        err_console.print(f"✗ {exc}", markup=False, style="red")
+        raise typer.Exit(1) from None
+
+    root = Path.cwd()
+    _ensure_env_gitignored(root)
+    changed = _write_config(root / CONFIG_FILENAME, render_config(selections))
+    added = _scaffold_env(root / ".env", env_vars_for(selections))
+
+    console.print(
+        f"✓ {CONFIG_FILENAME} {'gravado' if changed else 'já estava atualizado'}.", markup=False
+    )
+    if added:
+        console.print(
+            f"✓ .env: {len(added)} variáveis a preencher — {', '.join(added)}", markup=False
+        )
+    else:
+        console.print("✓ .env: nada a adicionar.", markup=False)
+    console.print(
+        "  Preencha os valores no .env (já ignorado pelo git). Depois rode `specharness up`.",
+        markup=False,
+    )
 
 
 @app.command()
