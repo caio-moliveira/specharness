@@ -37,15 +37,21 @@ def test_fixed_spine_present_for_any_agent_and_tracker():
 
 #: Ferramentas/caminhos do NOSSO fluxo de dev (produto A) que o init NÃO provisiona
 #: no repo do usuário (produto B) — não podem aparecer no harness gerado (SPEC-026).
-_UNPROVISIONED_INTERNAL_REFS = ("verificar-spec", "profiles/", "profiles`")
+#: `profiles` cru (sem barra) também é proibido: pega qualquer citação do diretório.
+_UNPROVISIONED_INTERNAL_REFS = ("verificar-spec", "profiles")
 
 
 def test_generated_harness_references_no_unprovisioned_internal_tooling():
     # O harness gerado expressa o método, sem citar ferramenta/caminho que só
-    # existe no repositório do specharness (SPEC-026).
+    # existe no repositório do specharness — nos TRÊS renderers (SPEC-026).
     for agent in OPTIONS["agent"]:
         for tracker in OPTIONS["tracker"]:
-            generated = "\n".join(block_files(agent, tracker, ScaffoldParams()).values())
+            generated = "\n".join(
+                (
+                    *block_files(agent, tracker, ScaffoldParams()).values(),
+                    render_specs_readme(tracker),
+                )
+            )
             for ref in _UNPROVISIONED_INTERNAL_REFS:
                 assert ref not in generated, f"{ref!r} vazou no harness de {agent}/{tracker}"
 
