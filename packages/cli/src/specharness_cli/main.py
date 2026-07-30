@@ -449,7 +449,7 @@ def track(
         raise typer.Exit(1) from None
 
     result = link_commits(commits, _load_spec_infos())
-    _render_track(result, orphans=orphans, limit=limit)
+    _render_track(result, orphans=orphans, limit=limit, ingested=len(commits))
 
 
 def _load_spec_infos() -> list[SpecInfo]:
@@ -470,7 +470,7 @@ def _load_spec_infos() -> list[SpecInfo]:
     return infos
 
 
-def _render_track(result, *, orphans: bool = False, limit: int = 20) -> None:
+def _render_track(result, *, orphans: bool = False, limit: int = 20, ingested: int = 0) -> None:
     table = Table(title="Pipeline commit → spec")
     table.add_column("Commit")
     table.add_column("Spec")
@@ -498,7 +498,15 @@ def _render_track(result, *, orphans: bool = False, limit: int = 20) -> None:
         )
     for spec_id in result.orphan_specs:
         console.print(f"  ⚠ spec órfã (in_progress sem commit): {spec_id}", markup=False)
-    if result.is_clean:
+    # Pipeline vazia não é pipeline limpa (SPEC-029): zero commits ingeridos
+    # significa que a ingestão nunca rodou, não que a higiene está em dia.
+    if ingested == 0:
+        console.print(
+            "⚠ Nenhum commit ingerido — rode 'specharness connect repo' para "
+            "ingerir o histórico (SPEC-006) antes de avaliar a higiene.",
+            markup=False,
+        )
+    elif result.is_clean:
         console.print("✓ Pipeline limpa.", markup=False)
 
 
