@@ -13,7 +13,10 @@ just dev                  # sobe o backend em :8321 (com seed) — API + /docs
 cd web && npm install && npm run dev   # sobe o web em :5173
 ```
 
-O web aponta para `VITE_API_BASE_URL` (padrão `http://localhost:8321`).
+Em dev, o web aponta para a API via `VITE_API_BASE_URL` (`web/.env.development`
+define `http://localhost:8321`). Sem a variável — caso do bundle de produção
+embutido no server — o cliente resolve a API na **mesma origem** que serve a
+página (SPEC-028).
 
 ## Contrato e regras
 
