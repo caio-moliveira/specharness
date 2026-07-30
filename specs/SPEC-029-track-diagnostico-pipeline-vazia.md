@@ -1,7 +1,7 @@
 ---
 spec: SPEC-029
 title: "CLI: track distingue pipeline vazia de pipeline limpa"
-status: verifying
+status: done
 type: feature
 owner: caio
 created: 2026-07-30
