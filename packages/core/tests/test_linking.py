@@ -119,3 +119,45 @@ def test_is_clean_only_without_invalid_links_or_orphans():
 
     dirty = link_commits([_commit("a", ())], [_spec("SPEC-042")])
     assert dirty.is_clean is False
+
+
+# --- SPEC-032: isenções do hook não são órfãos -------------------------------
+
+
+def _commit_with_message(sha, message):
+    return Commit(
+        sha=sha,
+        author="Ana",
+        authored_at=datetime(2026, 7, 30),
+        message=message,
+        spec_trailers=(),
+    )
+
+
+def test_merge_commit_is_not_an_orphan():
+    result = link_commits([_commit_with_message("m1", "Merge pull request #7 from x/y")], [])
+
+    assert result.orphan_commits == ()
+
+
+def test_fixup_commit_is_not_an_orphan():
+    result = link_commits([_commit_with_message("f1", "fixup! feat: x")], [])
+
+    assert result.orphan_commits == ()
+
+
+def test_squash_and_release_commits_are_not_orphans():
+    commits = [
+        _commit_with_message("s1", "squash! feat: x"),
+        _commit_with_message("r1", "chore(release): 0.2.0"),
+    ]
+
+    result = link_commits(commits, [])
+
+    assert result.orphan_commits == ()
+
+
+def test_a_plain_commit_without_trailer_is_still_an_orphan():
+    result = link_commits([_commit_with_message("p1", "feat: sem trailer")], [])
+
+    assert result.orphan_commits == ("p1",)

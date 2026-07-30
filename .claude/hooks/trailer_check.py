@@ -18,9 +18,7 @@ sys.path.insert(0, str(REPO_ROOT / "packages" / "core" / "src"))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from specharness_core import parse_spec, valid_spec_trailers  # noqa: E402
-
-EXEMPT_PREFIXES = ("Merge ", "fixup!", "squash!", "chore(release)")
+from specharness_core import is_trailer_exempt, parse_spec, valid_spec_trailers  # noqa: E402
 
 
 def known_spec_ids() -> dict[str, str]:
@@ -37,8 +35,7 @@ def known_spec_ids() -> dict[str, str]:
 
 def main() -> int:
     message = Path(sys.argv[1]).read_text(encoding="utf-8")
-    first_line = message.splitlines()[0] if message.splitlines() else ""
-    if first_line.startswith(EXEMPT_PREFIXES):
+    if is_trailer_exempt(message):
         return 0
 
     valid, invalid = valid_spec_trailers(message)
@@ -46,8 +43,12 @@ def main() -> int:
         print(f"✗ Trailer 'Spec:' com valor inválido: {', '.join(invalid)}")
         return 1
     if not valid:
-        print("✗ Commit sem trailer 'Spec: SPEC-NNN'.")
-        print("  Adicione ao fim da mensagem, ex.:\n\n    Spec: SPEC-003\n")
+        print("✗ Commit sem trailer 'Spec: SPEC-NNN' no bloco final da mensagem.")
+        print("  O git só reconhece trailers no ÚLTIMO bloco — uma linha em branco")
+        print("  encerra o bloco. Deixe todos os trailers JUNTOS no fim, ex.:\n")
+        print("    feat: minha mudança\n")
+        print("    Spec: SPEC-003")
+        print("    Co-Authored-By: Fulana <fulana@exemplo.com>\n")
         return 1
 
     known = known_spec_ids()

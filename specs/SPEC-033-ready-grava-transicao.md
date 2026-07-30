@@ -1,7 +1,7 @@
 ---
 spec: SPEC-033
 title: "ready: veredito PRONTA grava a transição para status ready"
-status: ready
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-30

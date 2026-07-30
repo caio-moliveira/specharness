@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -100,6 +101,7 @@ from specharness_core.ports.llm import LLMError, NoProviderConfigured, onboardin
 from specharness_core.ports.repository import (
     GITHUB_TOKEN_ENV,
     AuthenticationFailed,
+    RepoRef,
     RepositoryError,
 )
 from specharness_core.ports.tracker import (
@@ -550,7 +552,10 @@ def ready(
 
     if override:
         _record_override(parsed.spec_id, author, reason, quiet=json_out)
-        _finish_ready(json_out, parsed.spec_id, ok=True, reason="override auditado")
+        promoted = _promote_to_ready(path, parsed.frontmatter.status, quiet=json_out)
+        _finish_ready(
+            json_out, parsed.spec_id, ok=True, reason="override auditado", promoted=promoted
+        )
         return
 
     report = evaluate_readiness(parsed, _load_registry())
@@ -612,7 +617,62 @@ def ready(
             llm=llm,
         )
         raise typer.Exit(1)
-    _finish_ready(json_out, parsed.spec_id, ok=True, floor=floor, llm=llm)
+    promoted = _promote_to_ready(path, parsed.frontmatter.status, quiet=json_out)
+    if promoted:
+        _rekey_readiness_cache(path, evaluation)
+    _finish_ready(json_out, parsed.spec_id, ok=True, floor=floor, llm=llm, promoted=promoted)
+
+
+def _rekey_readiness_cache(path: Path, evaluation: Evaluation) -> None:
+    """Recacheia a avaliação sob o hash do texto promovido (SPEC-033 × SPEC-011).
+
+    A promoção reescreve o arquivo; sem o re-key, a garantia "spec inalterada
+    usa cache" quebraria para uma mudança feita pela própria ferramenta.
+    """
+    try:
+        gateway = gateway_from_env()
+        gateway.migrate()
+        ReadinessCacheStore(gateway.target).put(
+            content_hash(path.read_text(encoding="utf-8"), PROMPT_VERSION),
+            evaluation,
+            datetime.now(),
+        )
+    except DatabaseError:
+        pass  # cache é otimização: a promoção não falha por causa dele
+
+
+def _promote_to_ready(path: Path, current: SpecStatus, *, quiet: bool) -> bool:
+    """Grava `status: ready` quando o veredito PRONTA parte de approved (SPEC-033).
+
+    A transição no arquivo é o que torna o cycle time ready→done coletável pelo
+    StatusHistoryReader — sem ela o gate aprova mas a aprovação não vira fato no
+    histórico. draft não é promovido: aprovar conteúdo é decisão humana.
+    """
+    if current is not SpecStatus.APPROVED:
+        if current is SpecStatus.DRAFT and not quiet:
+            console.print(
+                "  Spec em draft — aprove-a primeiro (status: approved) para o "
+                "veredito PRONTA gravar a transição para ready.",
+                markup=False,
+                style="yellow",
+            )
+        return False
+    text = path.read_text(encoding="utf-8")
+    updated = re.sub(r"^status: approved$", "status: ready", text, count=1, flags=re.MULTILINE)
+    updated = re.sub(
+        r"^updated: .*$",
+        f"updated: {datetime.now().date().isoformat()}",
+        updated,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    path.write_text(updated, encoding="utf-8")
+    if not quiet:
+        console.print(
+            f"✓ status: ready gravado em {path.name} (transição visível ao cycle time).",
+            markup=False,
+        )
+    return True
 
 
 def _finish_ready(
@@ -623,6 +683,7 @@ def _finish_ready(
     reason: str | None = None,
     floor: dict | None = None,
     llm: dict | None = None,
+    promoted: bool | None = None,
 ) -> None:
     """A linha final que responde "está pronta ou não?" em todo caminho (SPEC-017)."""
     if json_out:
@@ -632,6 +693,7 @@ def _finish_ready(
             "reason": reason,
             "floor": floor,
             "llm": llm,
+            "promoted": promoted,
         }
         print(json.dumps(payload, ensure_ascii=False))
     elif ok:
@@ -1372,20 +1434,43 @@ def _describe(gateway) -> str:
 
 
 @connect_app.command("repo")
-def connect_repo() -> None:
+def connect_repo(
+    remote: str = typer.Option("origin", "--remote", help="nome do remote git a resolver"),
+    repo: str | None = typer.Option(
+        None, "--repo", help="owner/nome do repositório — dispensa o parsing da URL do remote"
+    ),
+) -> None:
     """Ingere commits (com trailers) e pull requests do repositório GitHub (SPEC-006).
 
     Lê o histórico do git local (ADR-011) e complementa com os PRs da API do
     GitHub. Precisa de GITHUB_TOKEN com escopo mínimo de leitura de Contents e
     Pull requests. O reprocessamento é idempotente: rodar de novo sem novidades
-    não cria registros.
+    não cria registros. Remotes fora do padrão github.com (proxy corporativo,
+    alias SSH, Enterprise) usam --remote ou --repo (SPEC-031).
     """
     reader = LocalGitCommitReader(Path.cwd())
-    try:
-        ref = reader.remote_ref()
-    except RepositoryError as exc:
-        err_console.print(f"✗ {exc}", markup=False, style="red")
-        raise typer.Exit(1) from None
+    if repo is not None:
+        owner, _, name = repo.partition("/")
+        if not owner or not name or "/" in name:
+            err_console.print(
+                f"✗ --repo espera owner/nome (ex.: acme/tool); recebi {repo!r}.",
+                markup=False,
+                style="red",
+            )
+            raise typer.Exit(1) from None
+        ref = RepoRef(owner=owner, name=name)
+    else:
+        try:
+            ref = reader.remote_ref(remote)
+        except RepositoryError as exc:
+            err_console.print(f"✗ {exc}", markup=False, style="red")
+            err_console.print(
+                "  Alternativas: --remote <nome> para resolver outro remote, ou "
+                "--repo owner/nome para dispensar o parsing da URL (SPEC-031).",
+                markup=False,
+                style="yellow",
+            )
+            raise typer.Exit(1) from None
 
     if not os.environ.get(GITHUB_TOKEN_ENV, "").strip():
         exc = AuthenticationFailed.for_repo(ref.slug, detail=f"{GITHUB_TOKEN_ENV} não definida")

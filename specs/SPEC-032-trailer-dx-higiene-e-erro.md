@@ -1,7 +1,7 @@
 ---
 spec: SPEC-032
 title: "DX do trailer: higiene isenta merges e erro do hook explica o bloco único"
-status: ready
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-30

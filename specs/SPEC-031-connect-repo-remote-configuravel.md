@@ -1,7 +1,7 @@
 ---
 spec: SPEC-031
 title: "connect repo: remote e repositório configuráveis"
-status: ready
+status: verifying
 type: feature
 owner: caio
 created: 2026-07-30
