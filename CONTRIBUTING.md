@@ -6,7 +6,7 @@ metodologia que o produto implementa.
 ## Setup (< 10 minutos)
 
 ```bash
-git clone https://github.com/<org>/specharness && cd specharness
+git clone https://github.com/caio-moliveira/specharness && cd specharness
 just setup    # uv sync + pre-commit (hooks de lint e de trailer)
 just test     # deve terminar verde
 ```
@@ -27,6 +27,19 @@ API key para desenvolver o core.
 4. **Decisão de arquitetura no meio do caminho?** Registre ADR em `docs/adrs/`
    (template no índice) — decisões sem alternativas consideradas são
    devolvidas.
+
+## `done` é do CI — proteja a main (mantenedores)
+
+A transição `verifying → done` é arbitrada pelos checks do PR (`verify-bdd`,
+`validate`, `test` — ADR-016). Um merge antes dos checks terminarem fura o
+árbitro: o workflow re-roda no push para a `main`, mas aí o merge já aconteceu.
+Configure **branch protection** na `main` (Settings → Branches → Add rule):
+
+- *Require status checks to pass before merging*, marcando `verify-bdd`,
+  `validate`, `lint` e `test` como obrigatórios;
+- *Require branches to be up to date before merging*.
+
+Com isso, nenhum `done` — nem nenhuma regressão — entra sem o veredito verde.
 
 ## Onde contribuir
 
