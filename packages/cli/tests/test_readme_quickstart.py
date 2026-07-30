@@ -17,3 +17,13 @@ def test_quickstart_requirements_declare_the_llm_requirement():
     assert "API key" in requirements
     assert "Ollama" in requirements
     assert "ADR-006" in requirements
+
+
+def test_quickstart_commands_are_copy_paste_executable():
+    text = README.read_text(encoding="utf-8")
+    requirements = text[text.index("Requirements:") : text.index("```bash")]
+    commands = text[text.index("```bash") : text.index("```", text.index("```bash") + 3)]
+    assert "<org>" not in commands
+    assert "git clone https://github.com/caio-moliveira/specharness" in commands
+    assert "uv tool install rust-just" in requirements
+    assert "Node" in requirements
