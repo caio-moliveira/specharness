@@ -1,7 +1,7 @@
 ---
 spec: SPEC-030
 title: "Onboarding: requisito de LLM cobrado cedo (init, preflight do up, README)"
-status: verifying
+status: done
 type: feature
 owner: caio
 created: 2026-07-30
