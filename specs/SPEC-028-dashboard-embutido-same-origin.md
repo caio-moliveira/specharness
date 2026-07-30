@@ -48,3 +48,11 @@ Funcionalidade: dashboard embutido same-origin
     Quando a página resolve a base da API
     Então a base aponta a porta separada da API definida na variável
 ```
+
+## Desvios registrados na entrega
+
+- A métrica 1 é medida por proxy estático, não servindo a página em host/porta
+  alternativos: assert na fonte (`api.ts` sem host absoluto, default `?? ""`)
+  somado ao gate de artefato (`check_dist` rejeita `localhost` no bundle do
+  wheel). Motivo: o repo não tem infra de teste JS que exercite a resolução no
+  browser; o padrão segue o precedente da SPEC-025 (`test_dashboard_labels.py`).
