@@ -136,6 +136,29 @@ def test_orphans_respects_the_limit(monkeypatch):
     assert "e 3 outro(s)" in result.output
 
 
+# --- pipeline vazia vs pipeline limpa (SPEC-029) ----------------------------
+
+
+def test_empty_pipeline_points_to_the_ingestion_command(monkeypatch):
+    _fake_store(monkeypatch, [])
+    _fake_specs(monkeypatch, [])
+
+    result = runner.invoke(app, ["track"])
+
+    assert result.exit_code == 0, result.output
+    assert "Nenhum commit ingerido" in result.output
+    assert "specharness connect repo" in result.output
+
+
+def test_empty_pipeline_is_not_reported_as_clean(monkeypatch):
+    _fake_store(monkeypatch, [])
+    _fake_specs(monkeypatch, [])
+
+    result = runner.invoke(app, ["track"])
+
+    assert "Pipeline limpa" not in result.output
+
+
 def test_load_spec_infos_reads_the_registry_from_disk(clean_env):
     (clean_env / "specs" / "SPEC-042-x.md").write_text(
         _valid_spec("SPEC-042", "in_progress"), "utf-8"
