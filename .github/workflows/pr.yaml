@@ -49,6 +49,32 @@ jobs:
           # mesma sessão.
           SPECHARNESS_TEST_POSTGRES_URL: postgresql://specharness:specharness@localhost:5432/specharness
 
+  # Gate de BDD (SPEC-012, ADR-016): roda os cenários de toda spec que tem
+  # step definitions em specs/steps/. É este job que autoriza `done` — a
+  # transição só passa no schema check em CI, e aqui é onde o BDD prova verde.
+  verify-bdd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { enable-cache: true }
+      - run: uv sync
+      - name: specharness verify --ci (specs com steps)
+        run: |
+          shopt -s nullglob
+          steps_files=(specs/steps/spec_*_steps.py)
+          if [ ${#steps_files[@]} -eq 0 ]; then
+            echo "nenhuma spec com step definitions — nada a verificar"
+            exit 0
+          fi
+          for steps in "${steps_files[@]}"; do
+            spec_id=$(basename "$steps" | sed -E 's/^spec_0*([0-9]+)_steps\.py$/\1/')
+            spec_id=$(printf 'SPEC-%03d' "$spec_id")
+            echo "::group::verify $spec_id"
+            uv run specharness verify "$spec_id" --ci --steps "$steps"
+            echo "::endgroup::"
+          done
+
   test-integrity:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
