@@ -96,7 +96,7 @@ from specharness_core.onboarding import (
     render_config,
 )
 from specharness_core.ports.database import DatabaseError
-from specharness_core.ports.llm import LLMError, onboarding_status
+from specharness_core.ports.llm import LLMError, NoProviderConfigured, onboarding_status
 from specharness_core.ports.repository import (
     GITHUB_TOKEN_ENV,
     AuthenticationFailed,
@@ -198,6 +198,16 @@ def up(
             style="yellow",
         )
         raise typer.Exit(1) from None
+    # Preflight de LLM (SPEC-030): a obrigatoriedade é do Readiness Gate
+    # (ADR-006), não do servidor — sem provedor o boot avisa e prossegue.
+    if not detect_providers(os.environ):
+        console.print(
+            "⚠ Nenhum provedor LLM disponível — o Readiness Gate (specharness ready) "
+            "fica inoperante até configurar um.",
+            markup=False,
+            style="yellow",
+        )
+        console.print(f"  {NoProviderConfigured.template}", markup=False, style="yellow")
     console.print(
         f"✓ specharness em http://{host}:{port}  (dashboard na raiz · API em /api · docs em /docs)",
         markup=False,
@@ -388,7 +398,8 @@ def init(
     else:
         console.print("• sem .git aqui — hook de commit-msg não instalado.", markup=False)
     console.print(
-        "  Preencha os valores no .env (já ignorado pelo git). Depois rode `specharness up`.",
+        "  Preencha os valores no .env (já ignorado pelo git), valide a LLM com "
+        "`specharness llm test` e depois rode `specharness up`.",
         markup=False,
     )
 
