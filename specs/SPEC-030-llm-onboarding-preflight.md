@@ -13,12 +13,14 @@ success_metrics:
   - "100% dos caminhos de boot do up cobertos por teste de CLI: sem provedor LLM o aviso aparece e o boot prossegue (exit 0); com provedor o aviso não aparece — 1 teste por caminho"
   - "Mensagem de fechamento do init contém 'specharness llm test' — 1 teste de CLI"
   - "Quickstart do README contém o requisito de LLM (API key ou Ollama) — 1 teste de conteúdo"
+  - "0 placeholders no quickstart do README (clone aponta o repositório real) e requisitos completos: instalação do just indicada e Node listado para o dashboard — 1 teste de conteúdo"
   - "0 asserts removidos ou afrouxados nos testes existentes (just test-integrity verde)"
 acceptance:
   - "O init termina orientando a validar a conexão LLM com specharness llm test antes do specharness up"
   - "O up sem nenhum provedor LLM disponível avisa no boot que o Readiness Gate fica inoperante, com a orientação unificada de provedores (SPEC-027), sem impedir o servidor de subir"
   - "O up com um provedor LLM disponível não emite o aviso"
   - "O quickstart do README declara que uma API key de LLM ou um Ollama local é obrigatório (ADR-006)"
+  - "O quickstart do README é executável sem adaptação: clone do repositório real sem placeholder, instalação do just indicada e Node listado como requisito do build do dashboard"
 ---
 
 ## Contexto
@@ -64,6 +66,11 @@ Funcionalidade: requisito de LLM cobrado no momento certo do onboarding
     Dado o quickstart do README
     Quando um usuário novo segue os requisitos listados
     Então o requisito de uma API key de LLM ou Ollama local está declarado antes dos comandos de setup
+
+  Cenário: quickstart é executável sem adaptação
+    Dado o quickstart do README
+    Quando um usuário novo copia os comandos de setup
+    Então o clone aponta o repositório real sem placeholder, a instalação do just está indicada e o Node é listado como requisito do dashboard
 ```
 
 ## Notas de implementação

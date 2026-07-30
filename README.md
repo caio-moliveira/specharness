@@ -69,12 +69,14 @@ for the complete vision and
 ## Quickstart (development)
 
 Requirements: [uv](https://docs.astral.sh/uv/), git, and
-[just](https://github.com/casey/just). An LLM is required (ADR-006): bring an
-API key (Anthropic, OpenAI or Azure) or a local [Ollama](https://ollama.com) —
-without one, the Readiness Gate stays blocked.
+[just](https://github.com/casey/just) (`uv tool install rust-just` works
+anywhere uv does). An LLM is required (ADR-006): bring an API key (Anthropic,
+OpenAI or Azure) or a local [Ollama](https://ollama.com) — without one, the
+Readiness Gate stays blocked. Node 20+ is needed only to build the embedded
+dashboard (`just build-web`); `just dev` serves the API without it.
 
 ```bash
-git clone https://github.com/<org>/specharness && cd specharness
+git clone https://github.com/caio-moliveira/specharness && cd specharness
 just setup     # uv sync + pre-commit hooks
 just test      # full suite — should be green
 just dev       # API at http://localhost:8321 (docs at /docs)
