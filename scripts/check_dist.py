@@ -45,7 +45,12 @@ _INTERNAL_LABELS: tuple[str, ...] = (
 
 
 def _embedded_web_leaks(server_wheel: Path) -> list[str]:
-    """Rótulos internos que vazam no bundle embutido do wheel do server (SPEC-025)."""
+    """O que não pode chegar ao dashboard embutido do wheel (SPEC-025, SPEC-028).
+
+    Rótulos internos do specharness (SPEC-025) e host absoluto `localhost`: o
+    bundle de produção resolve a API na mesma origem que o serve, então uma URL
+    de localhost embutida quebraria `specharness up` em outra porta/host (SPEC-028).
+    """
     leaks: list[str] = []
     with zipfile.ZipFile(server_wheel) as zf:
         for name in zf.namelist():
@@ -55,6 +60,11 @@ def _embedded_web_leaks(server_wheel: Path) -> list[str]:
             for label in _INTERNAL_LABELS:
                 if label in text:
                     leaks.append(f"rótulo interno {label!r} no dashboard servido ({name})")
+            if "localhost" in text:
+                leaks.append(
+                    f"host absoluto 'localhost' embutido no dashboard servido ({name}); "
+                    "deve resolver same-origin (SPEC-028)"
+                )
     return leaks
 
 
