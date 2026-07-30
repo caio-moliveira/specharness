@@ -116,3 +116,15 @@ def test_init_interactive_prompts_read_stdin(tmp_path, monkeypatch):
     result = runner.invoke(app, ["init"], input=answers)
     assert result.exit_code == 0
     assert "tracker: jira" in (tmp_path / "specharness.yaml").read_text(encoding="utf-8")
+
+
+# --- requisito de LLM cobrado cedo (SPEC-030) --------------------------------
+
+
+def test_init_closing_message_points_to_llm_test(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, BASE)
+    assert result.exit_code == 0
+    assert "specharness llm test" in result.output
+    # o encaminhamento vem antes do up: validar a LLM precede o boot
+    assert result.output.index("llm test") < result.output.index("specharness up")

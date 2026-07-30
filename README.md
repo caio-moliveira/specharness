@@ -69,7 +69,9 @@ for the complete vision and
 ## Quickstart (development)
 
 Requirements: [uv](https://docs.astral.sh/uv/), git, and
-[just](https://github.com/casey/just).
+[just](https://github.com/casey/just). An LLM is required (ADR-006): bring an
+API key (Anthropic, OpenAI or Azure) or a local [Ollama](https://ollama.com) —
+without one, the Readiness Gate stays blocked.
 
 ```bash
 git clone https://github.com/<org>/specharness && cd specharness
