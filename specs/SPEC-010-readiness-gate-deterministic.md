@@ -1,7 +1,7 @@
 ---
 spec: SPEC-010
 title: "Readiness Gate: camada determinística (Definition of Ready automatizada)"
-status: verifying
+status: done
 type: feature
 owner: caio
 created: 2026-07-25
