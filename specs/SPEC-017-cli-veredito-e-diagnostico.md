@@ -1,7 +1,7 @@
 ---
 spec: SPEC-017
 title: "CLI: veredito consolidado do ready e diagnóstico acionável (perception, track)"
-status: verifying
+status: done
 type: feature
 owner: caio
 created: 2026-07-27
