@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 
 import pytest
 from specharness_cli.main import app
@@ -333,3 +334,23 @@ def test_json_reports_the_promotion(monkeypatch, in_repo, with_provider):
 
     payload = json.loads([line for line in result.output.splitlines() if line.strip()][-1])
     assert payload["promoted"] is True
+
+
+def test_promotion_refreshes_the_updated_date(monkeypatch, in_repo, with_provider):
+    # Mata o mutante apontado pela verificação adversarial (2026-07-30): o
+    # critério 1 promete "(e updated)" e nada asserava a reescrita da data.
+    path = in_repo / "specs" / "SPEC-042-y.md"
+    path.write_text(
+        path.read_text("utf-8").replace(
+            "created: 2026-07-25\n", "created: 2026-07-25\nupdated: 2026-07-01\n"
+        ),
+        "utf-8",
+    )
+    _fake_llm(monkeypatch, 90)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 0, result.output
+    text = path.read_text("utf-8")
+    assert "updated: 2026-07-01" not in text
+    assert f"updated: {date.today().isoformat()}" in text
