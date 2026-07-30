@@ -30,6 +30,17 @@ _TRAILER_RE = re.compile(r"^Spec:\s*(?P<value>\S+)\s*$", re.MULTILINE)
 # A trailer line: `Token: value`, token being letters/digits/hyphens.
 _TRAILER_LINE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*:\s")
 
+#: Commits que o hook de commit-msg isenta do trailer `Spec:` (SPEC-032). A
+#: higiene de órfãos usa a MESMA lista — uma regra, uma fonte, sem falso
+#: positivo no dashboard para todo merge de PR.
+EXEMPT_PREFIXES = ("Merge ", "fixup!", "squash!", "chore(release)")
+
+
+def is_trailer_exempt(message: str) -> bool:
+    """Whether a commit message is exempt from the `Spec:` trailer (SPEC-032)."""
+    first_line = message.splitlines()[0] if message else ""
+    return first_line.startswith(EXEMPT_PREFIXES)
+
 
 def _is_trailer_block(block: str) -> bool:
     """True if every line is a trailer (mirroring git's rule).

@@ -124,3 +124,65 @@ def test_connect_repo_is_discoverable(fake_sources):
     result = runner.invoke(app, ["connect", "--help"])
 
     assert "repo" in result.output
+
+
+# --- origem configurável (SPEC-031) ------------------------------------------
+
+
+class RecordingReader(FakeReader):
+    remotes_asked: list[str] = []
+
+    def remote_ref(self, remote="origin"):
+        RecordingReader.remotes_asked.append(remote)
+        return RepoRef("acme", "tool")
+
+
+def test_named_remote_replaces_origin(monkeypatch):
+    RecordingReader.remotes_asked = []
+    monkeypatch.setattr("specharness_cli.main.LocalGitCommitReader", RecordingReader)
+    monkeypatch.setattr("specharness_cli.main.GitHubClient", FakeGitHubClient)
+    monkeypatch.setenv("GITHUB_TOKEN", SECRET)
+
+    result = runner.invoke(app, ["connect", "repo", "--remote", "upstream"])
+
+    assert result.exit_code == 0, result.output
+    assert RecordingReader.remotes_asked == ["upstream"]
+
+
+def test_repo_flag_skips_remote_parsing(monkeypatch):
+    class UnparseableReader(FakeReader):
+        def remote_ref(self, remote="origin"):
+            raise RepositoryError("não reconheço a URL de remote do GitHub")
+
+    monkeypatch.setattr("specharness_cli.main.LocalGitCommitReader", UnparseableReader)
+    monkeypatch.setattr("specharness_cli.main.GitHubClient", FakeGitHubClient)
+    monkeypatch.setenv("GITHUB_TOKEN", SECRET)
+
+    result = runner.invoke(app, ["connect", "repo", "--repo", "acme/tool"])
+
+    assert result.exit_code == 0, result.output
+    assert "acme/tool" in result.output
+
+
+def test_unrecognized_remote_error_points_to_the_flags(monkeypatch):
+    class UnparseableReader(FakeReader):
+        def remote_ref(self, remote="origin"):
+            raise RepositoryError("não reconheço a URL de remote do GitHub")
+
+    monkeypatch.setattr("specharness_cli.main.LocalGitCommitReader", UnparseableReader)
+    monkeypatch.setenv("GITHUB_TOKEN", SECRET)
+
+    result = runner.invoke(app, ["connect", "repo"])
+
+    assert result.exit_code == 1
+    assert "--remote" in result.output
+    assert "--repo" in result.output
+
+
+def test_malformed_repo_flag_is_rejected(monkeypatch, fake_sources):
+    monkeypatch.setenv("GITHUB_TOKEN", SECRET)
+
+    result = runner.invoke(app, ["connect", "repo", "--repo", "sem-barra"])
+
+    assert result.exit_code == 1
+    assert "owner/nome" in result.output

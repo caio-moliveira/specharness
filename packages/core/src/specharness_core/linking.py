@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from .ports.repository import Commit
 from .specschema import SPEC_ID_PATTERN, SpecStatus
+from .trailers import is_trailer_exempt
 
 
 @dataclass(frozen=True)
@@ -81,7 +82,10 @@ def link_commits(commits: Iterable[Commit], specs: Iterable[SpecInfo]) -> Linkin
 
     for commit in commits:
         if not commit.spec_trailers:
-            orphan_commits.append(commit.sha)
+            # Merges e afins são isentos do trailer pelo hook; contá-los como
+            # órfãos seria um falso alarme permanente na higiene (SPEC-032).
+            if not is_trailer_exempt(commit.message):
+                orphan_commits.append(commit.sha)
             continue
         for trailer in commit.spec_trailers:
             valid = bool(SPEC_ID_PATTERN.match(trailer)) and trailer in known_ids

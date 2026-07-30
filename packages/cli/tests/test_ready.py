@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 
 import pytest
 from specharness_cli.main import app
@@ -278,3 +279,78 @@ def test_ready_json_blocked_names_the_reason(no_provider):
     payload = json.loads(result.stdout)
     assert payload["verdict"] == "blocked"
     assert "semântica" in payload["reason"]
+
+
+# --- SPEC-033: veredito PRONTA grava a transição -----------------------------
+
+
+def test_approval_promotes_the_spec_to_ready(monkeypatch, in_repo, with_provider):
+    _fake_llm(monkeypatch, 90)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 0, result.output
+    text = (in_repo / "specs" / "SPEC-042-y.md").read_text("utf-8")
+    assert "status: ready" in text
+    assert "status: ready gravado" in result.output
+
+
+def test_override_also_promotes(in_repo):
+    result = runner.invoke(
+        app, ["ready", "SPEC-042", "--override", "--author", "tl", "--reason", "prazo"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "status: ready" in (in_repo / "specs" / "SPEC-042-y.md").read_text("utf-8")
+
+
+def test_draft_is_not_promoted_and_gets_guidance(monkeypatch, in_repo, with_provider):
+    path = in_repo / "specs" / "SPEC-042-y.md"
+    path.write_text(path.read_text("utf-8").replace("status: approved", "status: draft"), "utf-8")
+    _fake_llm(monkeypatch, 90)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 0, result.output
+    assert "status: draft" in path.read_text("utf-8")  # arquivo intocado
+    assert "aprove" in result.output.lower()
+
+
+def test_blocked_verdict_leaves_the_file_untouched(monkeypatch, in_repo, with_provider):
+    path = in_repo / "specs" / "SPEC-042-y.md"
+    before = path.read_text("utf-8")
+    _fake_llm(monkeypatch, 10)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 1
+    assert path.read_text("utf-8") == before
+
+
+def test_json_reports_the_promotion(monkeypatch, in_repo, with_provider):
+    _fake_llm(monkeypatch, 90)
+
+    result = runner.invoke(app, ["ready", "SPEC-042", "--json"])
+
+    payload = json.loads([line for line in result.output.splitlines() if line.strip()][-1])
+    assert payload["promoted"] is True
+
+
+def test_promotion_refreshes_the_updated_date(monkeypatch, in_repo, with_provider):
+    # Mata o mutante apontado pela verificação adversarial (2026-07-30): o
+    # critério 1 promete "(e updated)" e nada asserava a reescrita da data.
+    path = in_repo / "specs" / "SPEC-042-y.md"
+    path.write_text(
+        path.read_text("utf-8").replace(
+            "created: 2026-07-25\n", "created: 2026-07-25\nupdated: 2026-07-01\n"
+        ),
+        "utf-8",
+    )
+    _fake_llm(monkeypatch, 90)
+
+    result = runner.invoke(app, ["ready", "SPEC-042"])
+
+    assert result.exit_code == 0, result.output
+    text = path.read_text("utf-8")
+    assert "updated: 2026-07-01" not in text
+    assert f"updated: {date.today().isoformat()}" in text

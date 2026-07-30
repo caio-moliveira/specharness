@@ -83,7 +83,7 @@ from .specschema import (
     can_transition,
     parse_spec,
 )
-from .trailers import extract_spec_trailers, valid_spec_trailers
+from .trailers import extract_spec_trailers, is_trailer_exempt, valid_spec_trailers
 from .verify import (
     ScenarioRun,
     VerifyReport,
@@ -156,6 +156,7 @@ __all__ = [
     "can_transition",
     "parse_spec",
     "extract_spec_trailers",
+    "is_trailer_exempt",
     "valid_spec_trailers",
     "CATEGORIES",
     "OPTIONS",
