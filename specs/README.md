@@ -17,6 +17,17 @@ tempo:
 - `verifying → done` exige BDD verde no CI
 - Commits referenciam specs via trailer `Spec: SPEC-NNN` (hook bloqueia sem)
 
+## Step definitions (gate de BDD — SPEC-012)
+
+Os cenários Gherkin de uma spec viram executáveis com um módulo de steps em
+`specs/steps/spec_NNN_steps.py` (expõe `registry: StepRegistry`):
+
+```
+specharness verify SPEC-029 --steps specs/steps/spec_029_steps.py
+```
+
+Cenário sem step definition fica `pendente` — e pendente bloqueia `done`.
+
 ## Mapa da Fase A
 
 | Sprint | Specs |

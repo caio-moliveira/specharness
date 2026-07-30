@@ -63,3 +63,5 @@ Funcionalidade: track distingue pipeline vazia de pipeline limpa
 - O caso vazio é detectado pela lista de commits lida do
   `RepositoryStore` antes de `link_commits` — zero commits ingeridos é
   propriedade da ingestão, não do resultado do linking.
+- Step definitions do gate de BDD: `specs/steps/spec_029_steps.py`
+  (`specharness verify SPEC-029 --steps specs/steps/spec_029_steps.py`).
